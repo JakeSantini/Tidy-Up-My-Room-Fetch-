@@ -164,6 +164,7 @@ include_directories(
  catkin_install_python(PROGRAMS
    scripts/dest_pub.py
    scripts/dest_sub.py
+   scripts/marker_sub.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

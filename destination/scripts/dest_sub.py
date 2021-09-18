@@ -7,9 +7,20 @@ from math import radians, degrees
 from actionlib_msgs.msg import *
 from geometry_msgs.msg import Point
 
+def talker():
+    pub = rospy.Publisher('destination_return', String, queue_size=10)
+    rate = rospy.Rate(10) # 10hz
+    rospy.loginfo("Publishing: success")
+
+    for x in range(0,50):         
+        pub.publish("success")
+        rate.sleep()
+
 def callback(data):
-    rospy.loginfo(rospy.get_caller_id() + " I heard %s", data.data)
-    map_navigation(data)
+    rospy.loginfo("%s requested", data.data)
+    complete = map_navigation(data)
+    if complete:
+        talker()
     
 def listener():
     rospy.init_node('dest_sub', anonymous=True)
@@ -20,10 +31,10 @@ def listener():
 
 
 def map_navigation(data):
-    xBench = 1
-    yBench = 1
-    xBox = 3
-    yBox = 3
+    xBench = 2
+    yBench = 3
+    xBox = 1
+    yBox = 1
     goalReached = False
 
     choice = 'q'
@@ -42,10 +53,12 @@ def map_navigation(data):
 
       if (goalReached):
         rospy.loginfo("Destination Reached")
+        return True
         #rospy.spin()
 
       else:
         rospy.loginfo("Destination Not Reached")
+        return False
 
 def moveToGoal(xGoal,yGoal):
 
@@ -70,17 +83,15 @@ def moveToGoal(xGoal,yGoal):
     goal.target_pose.pose.orientation.z = 0.0
     goal.target_pose.pose.orientation.w = 1.0
 
-    rospy.loginfo("Sending goal location ...")
+    rospy.loginfo("Moving to location")
     ac.send_goal(goal)
 
     ac.wait_for_result(rospy.Duration(60))
 
     if(ac.get_state() ==  GoalStatus.SUCCEEDED):
-            rospy.loginfo("Destination Reached")
             return True
 
     else:
-            rospy.loginfo("Destination Not Reached")
             return False
 
 
