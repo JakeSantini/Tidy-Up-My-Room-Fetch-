@@ -7,7 +7,7 @@ start = True
 
 def callback(data):
     rospy.loginfo("%s", data.data)
-    rospy.Subscriber("destination_return", String, callback)
+    #rospy.Subscriber("destination_return", String, callback)
 
     if data.data == "success":
         print("nice")

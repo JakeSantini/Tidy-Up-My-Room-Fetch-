@@ -1,23 +1,35 @@
 #!/usr/bin/env python
 import rospy
+import tf
 from std_msgs.msg import String
-from fiducial_msgs import FiducialArray
+from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
 
 def callback(msg):
-    rospy.loginfo(rospy.get_caller_id() + "I heard %s", msg.XXX)
+    
+    # Take the first marker we see and get its information
+    marker = msg.transforms[0]
+    ID = marker.fiducial_id   
+    trans = marker.transform.translation
+    rot = marker.transform.rotation
+    print("Fiducial", ID, "Translation:", trans.x, trans.y, trans.z, "Rotation:" rot.x, rot.y, rot.z, rot.w)
+    
+    t = TransformStamped()
+    t.child_frame_id = "fid%d" % ID
+    t.header.frame_id = msg.header.frame_id
+    t.header.stamp = imageTime
+    t.transform.translation.x = trans.x
+    t.transform.translation.y = trans.y
+    t.transform.translation.z = trans.z
+    t.transform.rotation.x = rot.x
+    t.transform.rotation.y = rot.y
+    t.transform.rotation.z = rot.z
+    t.transform.rotation.w = rot.w
+    br.sendTransform(t)
     
 def listener():
-
-    # In ROS, nodes are uniquely named. If two nodes with the same
-    # name are launched, the previous one is kicked off. The
-    # anonymous=True flag means that rospy will choose a unique
-    # name for our 'listener' node so that multiple listeners can
-    # run simultaneously.
     rospy.init_node('marker_sub', anonymous=True)
-
-    rospy.Subscriber("fiducial_vertices", FiducialArray, callback)
-
-    # spin() simply keeps python from exiting until this node is stopped
+    # Subscribe to aruco_detect topics for marker to camera transforms
+    rospy.Subscriber("fiducial_transforms", FiducialTransformArray, callback)
     rospy.spin()
 
 if __name__ == '__main__':
