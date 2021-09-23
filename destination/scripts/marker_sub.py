@@ -11,8 +11,11 @@ def callback(msg):
     ID = marker.fiducial_id   
     trans = marker.transform.translation
     rot = marker.transform.rotation
-    print("Fiducial", ID, "Translation:", trans.x, trans.y, trans.z, "Rotation:" rot.x, rot.y, rot.z, rot.w)
+    print 'Fiducial', ID
+    print 'Translation: ', trans.x, trans.y, trans.z
+    print 'Rotation: ', rot.x, rot.y, rot.z, rot.w
     
+"""
     t = TransformStamped()
     t.child_frame_id = "fid%d" % ID
     t.header.frame_id = msg.header.frame_id
@@ -25,6 +28,7 @@ def callback(msg):
     t.transform.rotation.z = rot.z
     t.transform.rotation.w = rot.w
     br.sendTransform(t)
+"""
     
 def listener():
     rospy.init_node('marker_sub', anonymous=True)

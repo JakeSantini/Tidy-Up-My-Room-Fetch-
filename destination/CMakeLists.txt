@@ -162,9 +162,10 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
-   scripts/dest_pub.py
-   scripts/dest_sub.py
+   scripts/navigation.py
    scripts/marker_sub.py
+   scripts/user_input.py
+   scripts/stop.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 
