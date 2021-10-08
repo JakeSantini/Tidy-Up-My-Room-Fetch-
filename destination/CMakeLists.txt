@@ -166,6 +166,8 @@ include_directories(
    scripts/marker_sub.py
    scripts/user_input.py
    scripts/stop.py
+   scripts/pick.py
+   #scripts/tts.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

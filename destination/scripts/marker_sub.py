@@ -5,7 +5,7 @@ from std_msgs.msg import String
 from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
 
 def callback(msg):
-    
+    #
     # Take the first marker we see and get its information
     marker = msg.transforms[0]
     ID = marker.fiducial_id   
