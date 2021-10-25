@@ -57,25 +57,24 @@ def open_gripper():
     gripper.wait_for_result()
 
 
-# Function that tucks the arm into the 'home' position
-def tuck_arm():
-    move_group = MoveGroupInterface("arm_with_torso", "base_link")
- 
-    joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
-                  "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
-    pose = [0.05, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
-
-    # Plans the joints in joint_names to angles in pose
-    move_group.moveToJointPosition(joints, pose, wait=True)
-
-
 # Function that raises the torso when the arm is tucked
 def raise_torso():
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
- 
+    # Define ground plane to avoid collisions
+    planning_scene = PlanningSceneInterface("base_link")
+    planning_scene.removeCollisionObject("my_front_ground") # removes from world so in relation to base_link instead
+    planning_scene.removeCollisionObject("my_back_ground")
+    planning_scene.removeCollisionObject("my_right_ground")
+    planning_scene.removeCollisionObject("my_left_ground")
+    planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0) # name, size, x, y, z
+    planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
+    planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
+    planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
+    planning_scene.addCube("table", 1, 1, 0, 0) # 50cm away, 50cm high
+
     joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
                   "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
-    pose = [0.4, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
+    pose = [0.5, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
 
     # Plans the joints in joint_names to angles in pose
     move_group.moveToJointPosition(joints, pose, wait=True)
@@ -84,30 +83,6 @@ def raise_torso():
 # Function that lowers the torso when the arm is tucked
 def lower_torso():
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
- 
-    joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
-                  "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
-    pose = [0.05, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
-
-    # Plans the joints in joint_names to angles in pose
-    move_group.moveToJointPosition(joints, pose, wait=True)
-
-
-# Function to pickup an object
-def pick_callback(msg):
-#def pick():
-    # Get tf information
-    marker = msg.transforms[0]
-    ID = marker.fiducial_id   
-    trans = marker.transform.translation
-    rot = marker.transform.rotation
-    #print 'Fiducial', ID
-    #print 'Translation: ', trans.x, trans.y, trans.z
-    #print 'Rotation: ', rot.x, rot.y, rot.z, rot.w
-
-    # Create move group interface for Fetch
-    move_group = MoveGroupInterface("arm_with_torso", "base_link")
-
     # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
     planning_scene.removeCollisionObject("my_front_ground")
@@ -118,10 +93,51 @@ def pick_callback(msg):
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
+    planning_scene.addCube("table", 1, 1, 0, 0)
+ 
+    joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
+                  "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
+    pose = [0.01, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
+
+    # Plans the joints in joint_names to angles in pose
+    move_group.moveToJointPosition(joints, pose, wait=True)
+
+
+# Function to pickup an object
+#def pick_callback(msg):
+def pick():
+    # Get tf information
+    #marker = msg.transforms[0]
+    #ID = marker.fiducial_id   
+    #trans = marker.transform.translation
+    #rot = marker.transform.rotation
+    #print 'Fiducial', ID
+    #print 'Translation: ', trans.x, trans.y, trans.z
+    #print 'Rotation: ', rot.x, rot.y, rot.z, rot.w
+
+    # Create move group interface for Fetch
+    move_group = MoveGroupInterface("arm_with_torso", "base_link")
+    # Define ground plane to avoid collisions
+    planning_scene = PlanningSceneInterface("base_link")
+    planning_scene.removeCollisionObject("my_front_ground")
+    planning_scene.removeCollisionObject("my_back_ground")
+    planning_scene.removeCollisionObject("my_right_ground")
+    planning_scene.removeCollisionObject("my_left_ground")
+    planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
+    planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
+    planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
+    planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
+    planning_scene.addCube("table", 1, 1, 0, 0)
+
+    listener = tf.TransformListener()
+    listener.waitForTransform("base_link","head_camera_link", rospy.Time(),rospy.Duration(1))
+    (trans_head, rot_head) = listener.lookupTransform("base_link","head_camera_link",rospy.Time(0))
 
     # Position and rotation of poses
-    #gripper_poses = [Pose(Point(trans.x, trans.y, trans.z + 0.1),Quaternion(rot.x, rot.y, rot.z, rot.w)),pose(Point(trans.x, trans.y, trans.z),Quaternion(rot.x, rot.y, rot.z, rot.w))]
-    gripper_poses = [Pose(Point(0.5, 0.5, 1),Quaternion(0,0,0,0.1)),Pose(Point(0.5, 0.5, 1.1),Quaternion(0,0,0,0.1))]
+    #gripper_poses = [Pose(Point(trans.x + trans_head[0], trans.y + trans_head[1], trans.z + trans_head[2]),Quaternion(rot.x + rot_head[0], rot.y + rot_head[1], rot.z + rot_head[2], rot.w + rot_head[3])),Pose(Point(trans.x + trans_head[0], trans.y + trans_head[1], trans.z + trans_head[2]),Quaternion(rot.x + rot_head[0], rot.y + rot_head[1], rot.z + rot_head[2], rot.w + rot_head[3]))]
+
+
+    gripper_poses = [Pose(Point(0 + trans_head[0], 0 + trans_head[1], 0.5 + trans_head[2]),Quaternion(0,0,0,0.1)),Pose(Point(0.5, 0.5, 1.1),Quaternion(0,0,0,0.1))]
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
@@ -134,8 +150,9 @@ def pick_callback(msg):
         # Move gripper frame to the pose specified
         move_group.moveToPose(gripper_pose_stamped, 'gripper_link')
 
+    rospy.sleep(1)
     close_gripper()
-    tuck_arm()
+    raise_torso()
     lower_torso()
     head_reset()
 
@@ -148,14 +165,21 @@ def pick_listener():
     rospy.Subscriber("fiducial_transforms", FiducialTransformArray, pick_callback)
     rospy.spin()    
 
+def test():
+    listener = tf.TransformListener()
+    listener.waitForTransform("base_link","head_camera_link", rospy.Time(),rospy.Duration(1))
+    (trans, rot) = listener.lookupTransform("base_link","head_camera_link",rospy.Time(0))
+    print trans[2]
+
 
 if __name__ == '__main__':
     rospy.init_node("pick")
-    pick_listener()
-    #raise_torso()
-    #head_tilt()
-    #open_gripper()
-    #pick()
+    #test()
+    #pick_listener()
+    raise_torso()
+    head_tilt()
+    open_gripper()
+    pick()
 
 
 
