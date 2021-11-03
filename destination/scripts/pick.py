@@ -7,8 +7,10 @@ from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import String
 from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
 
-# Function that tilts the head to look down
-def head_tilt():
+counter = 0
+
+# Function that controls the head tilt
+def head_tilt(height):
     head_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
     head_client.wait_for_server()
     goal = PointHeadGoal()
@@ -16,49 +18,22 @@ def head_tilt():
     goal.target.header.frame_id = "base_link"
     goal.target.point.x = 1
     goal.target.point.y = 0
-    goal.target.point.z = 0.5
+    goal.target.point.z = height
     head_client.send_goal(goal)
     head_client.wait_for_result()
 
-
-# Function that resets the head tilt
-def head_reset():
-    head_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
-    head_client.wait_for_server()
-    goal = PointHeadGoal()
-    goal.target.header.stamp = rospy.Time.now()
-    goal.target.header.frame_id = "base_link"
-    goal.target.point.x = 1
-    goal.target.point.y = 0
-    goal.target.point.z = 1
-    head_client.send_goal(goal)
-    head_client.wait_for_result()
-
-
-# Function that closes the gripper
-def close_gripper():
+# Function that controls the gripper
+def gripper(position):
     gripper = actionlib.SimpleActionClient("gripper_controller/gripper_action", GripperCommandAction)
     gripper.wait_for_server()
     goal = GripperCommandGoal()
-    goal.command.max_effort = 10
-    goal.command.position = 0
+    goal.command.max_effort = 50
+    goal.command.position = position
     gripper.send_goal(goal)
     gripper.wait_for_result()
 
-
-# Function that opens the gripper
-def open_gripper():
-    gripper = actionlib.SimpleActionClient("gripper_controller/gripper_action", GripperCommandAction)
-    gripper.wait_for_server()
-    goal = GripperCommandGoal()
-    goal.command.max_effort = 10
-    goal.command.position = 0.1
-    gripper.send_goal(goal)
-    gripper.wait_for_result()
-
-
-# Function that raises the torso when the arm is tucked
-def raise_torso():
+# Function that controls the torso and arm tuck
+def torso(height):
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
@@ -70,42 +45,19 @@ def raise_torso():
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
-    planning_scene.addCube("table", 1, 1, 0, 0) # 50cm away, 50cm high
-
-    joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
-                  "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
-    pose = [0.5, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
-
-    # Plans the joints in joint_names to angles in pose
-    move_group.moveToJointPosition(joints, pose, wait=True)
-
-
-# Function that lowers the torso when the arm is tucked
-def lower_torso():
-    move_group = MoveGroupInterface("arm_with_torso", "base_link")
-    # Define ground plane to avoid collisions
-    planning_scene = PlanningSceneInterface("base_link")
-    planning_scene.removeCollisionObject("my_front_ground")
-    planning_scene.removeCollisionObject("my_back_ground")
-    planning_scene.removeCollisionObject("my_right_ground")
-    planning_scene.removeCollisionObject("my_left_ground")
-    planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
-    planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
-    planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
-    planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
     planning_scene.addCube("table", 1, 1, 0, 0)
- 
+    planning_scene.addBox("base", 0.32,0.56,0.73,0.13,0,0)
+
     joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
                   "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
-    pose = [0.01, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
+    pose = [height, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
 
     # Plans the joints in joint_names to angles in pose
     move_group.moveToJointPosition(joints, pose, wait=True)
-
 
 # Function to pickup an object
-#def pick_callback(msg):
 def pick():
+#def pick(msg):
     # Get tf information
     #marker = msg.transforms[0]
     #ID = marker.fiducial_id   
@@ -128,16 +80,30 @@ def pick():
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
     planning_scene.addCube("table", 1, 1, 0, 0)
+    planning_scene.addBox("base", 0.32,0.56,0.73,0.13,0,0)
+
+    #listener = tf.TransformListener()
+    #listener.waitForTransform("base_link","head_camera_link", rospy.Time(),rospy.Duration(1))
+    #(trans_head, rot_head) = listener.lookupTransform("base_link","head_camera_link",rospy.Time(0))
 
     listener = tf.TransformListener()
-    listener.waitForTransform("base_link","head_camera_link", rospy.Time(),rospy.Duration(1))
-    (trans_head, rot_head) = listener.lookupTransform("base_link","head_camera_link",rospy.Time(0))
+    listener.waitForTransform("base_link","object", rospy.Time(),rospy.Duration(1))
+    (trans_head, rot_head) = listener.lookupTransform("base_link","object",rospy.Time(0))
+    print(trans_head)
 
     # Position and rotation of poses
     #gripper_poses = [Pose(Point(trans.x + trans_head[0], trans.y + trans_head[1], trans.z + trans_head[2]),Quaternion(rot.x + rot_head[0], rot.y + rot_head[1], rot.z + rot_head[2], rot.w + rot_head[3])),Pose(Point(trans.x + trans_head[0], trans.y + trans_head[1], trans.z + trans_head[2]),Quaternion(rot.x + rot_head[0], rot.y + rot_head[1], rot.z + rot_head[2], rot.w + rot_head[3]))]
 
 
-    gripper_poses = [Pose(Point(0 + trans_head[0], 0 + trans_head[1], 0.5 + trans_head[2]),Quaternion(0,0,0,0.1)),Pose(Point(0.5, 0.5, 1.1),Quaternion(0,0,0,0.1))]
+    #gripper_poses = [Pose(Point(0.1 + trans_head[0], 0 + trans_head[1], 0.2 + trans_head[2]),Quaternion(0,0,0,0.1)),Pose(Point(0.5, 0.5, 1.1),Quaternion(0,0,0,0.1))]
+    #gripper_poses = [Pose(Point(1, 0, 0.7),Quaternion(0,0,0,1))]
+
+    #gripper_poses = [Pose(Point(0.0790808050109 + trans_head[0], -0.00441955685437 + trans_head[1], 1.07850313818 + trans_head[2]),Quaternion(-0.722984581644 + rot_head[0], -0.623913222589 + rot_head[1], 0.0623081763131 + rot_head[2], 0.290074605142 + rot_head[3]))]
+    
+    #gripper_poses = [Pose(Point(trans.x + trans_head[0],trans.y+trans_head[1],trans.z+trans_head[2]),Quaternion(rot.x+rot_head[0],rot.y+rot_head[1],rot.z+rot_head[2],rot.w+rot_head[3]))]
+
+    #gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]-1),Quaternion(rot_head[0],rot_head[1],rot_head[2],rot_head[3]))]
+    gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]-1),Quaternion(0,0,0,1))]    
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
@@ -151,34 +117,42 @@ def pick():
         move_group.moveToPose(gripper_pose_stamped, 'gripper_link')
 
     rospy.sleep(1)
-    close_gripper()
-    raise_torso()
-    lower_torso()
-    head_reset()
+    gripper(0)
+    rospy.sleep(1)
+    torso(0.5)
+    rospy.sleep(1)
+    torso(0.05)
+    head_tilt(1)
+    rospy.sleep(1)
+
+# Only calls the pick function once an object has been detected
+def pick_callback(msg):
+    if len(msg.transforms) > 0:
+        counter = 0
+        pick(msg)
+    elif counter < 50:
+        counter += 1
+        pick_listener()
+    counter = 0        
 
 
 # Subscribe to aruco_detect topics for marker to camera transforms
 def pick_listener():
-    raise_torso()
-    head_tilt()
-    open_gripper()
-    rospy.Subscriber("fiducial_transforms", FiducialTransformArray, pick_callback)
-    rospy.spin()    
-
-def test():
-    listener = tf.TransformListener()
-    listener.waitForTransform("base_link","head_camera_link", rospy.Time(),rospy.Duration(1))
-    (trans, rot) = listener.lookupTransform("base_link","head_camera_link",rospy.Time(0))
-    print trans[2]
+    torso(0.5)
+    head_tilt(0.5)
+    gripper(0.1)
+    rospy.Subscriber("fiducial_transforms", FiducialTransformArray, pick_callback)    
 
 
 if __name__ == '__main__':
     rospy.init_node("pick")
-    #test()
     #pick_listener()
-    raise_torso()
-    head_tilt()
-    open_gripper()
+
+
+    # Without marker test
+    torso(0.5)
+    head_tilt(0.5)
+    gripper(0.1)
     pick()
 
 

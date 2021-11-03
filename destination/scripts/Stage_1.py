@@ -90,18 +90,26 @@ def navigate(location):
 
 
 def start():
-    while T1.empty == False: # If the first table is not empty
+    while (not T1.empty): # If the first table is not empty
         navigate = navigate(T1.location) # navigate to table 1
         if navigate == True:
             current_table = 1
-            pick_listener() # pick an object up and return its colour
+            pick_listener() # pick an object up
             if current_colour == 'red':
-                navigate(RS.location) # if object is red go to red storage
+                navigate = navigate(RS.location) # if object is red go to red storage
             else:
-                navigate(BS.location) # else the object is blue therefore go to blue container
-            place() # place the object in the container
+                navigate = navigate(BS.location) # else the object is blue therefore go to blue container
+            if navigate == True:
+                place() # place the object in the container
+            else:
+                sc.say('Sorry I can not reach the container, please take the object I have')
+                open_gripper()
+                rospy.sleep(10)
+        else:
+            sc.say('Sorry I can not reach the table')
+            break
 
-    while T2.empty == False:
+    while (not T2.empty):
         navigate(T2.location)
         if navigate == True:
             current_table = 2
@@ -116,6 +124,8 @@ def start():
     lowe_torso()
     open_gripper()
     head_reset()
+    T1.empty == False
+    T2.empty == False
     sc.say('I have finished tidying let me know when you want me to start again')
 
 # Fetch asks if it should start tidying
@@ -124,21 +134,18 @@ if __name__ == '__main__':
     lower_torso()
     open_gripper()
     head_reset()
-    sc.say('Hello my name is Fetch, do you want me to start tidying?: ')
-    input_str = raw_input("(yes/no)")
-
-    if input_str == 'yes':
-        sc.say('I will begin tidying now')
-        start() # start tidying
-    else:
-        sc.say('Ok let me know when you want me to start')
-        input_str = raw_input('Enter yes when you want me to start: ')
+    sc.say('Hello my name is Fetch do you want me to start tidying?')
+  
+    while True:    
+        input_str = raw_input("Shall I Tidy? (yes/no/quit): ")    
         if input_str == 'yes':
             sc.say('I will begin tidying now')
-            start()
-
-
-
+            start() # start tidying
+        elif input_str == 'quit':
+            break
+        else:
+            sc.say('Ok let me know when you want me to start')
+      
     
 
         
