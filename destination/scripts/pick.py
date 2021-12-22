@@ -6,8 +6,7 @@ from moveit_python import MoveGroupInterface, PlanningSceneInterface
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import String
 from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
-
-counter = 0
+from tf.transformations import quaternion_from_euler
 
 # Function that controls the head tilt
 def head_tilt(height):
@@ -67,6 +66,17 @@ def pick():
     #print 'Translation: ', trans.x, trans.y, trans.z
     #print 'Rotation: ', rot.x, rot.y, rot.z, rot.w
 
+    transx = 0.00714426165428
+    transy = 0.204051632032
+    transz = 0.55055134137
+    rotx = 0.00188216955915
+    roty = 0.864120680408
+    rotz = -0.498701155419
+    rotw = -0.0677426358516
+    #br = tf.TransformBroadcaster()
+    #br.sendTransform((transx,transy,transz),(rotx,roty,rotz,rotw),rospy.Time.now(),"object","head_camera_link")
+     
+
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     # Define ground plane to avoid collisions
@@ -82,28 +92,17 @@ def pick():
     planning_scene.addCube("table", 1, 1, 0, 0)
     planning_scene.addBox("base", 0.32,0.56,0.73,0.13,0,0)
 
-    #listener = tf.TransformListener()
-    #listener.waitForTransform("base_link","head_camera_link", rospy.Time(),rospy.Duration(1))
-    #(trans_head, rot_head) = listener.lookupTransform("base_link","head_camera_link",rospy.Time(0))
-
+ 
     listener = tf.TransformListener()
-    listener.waitForTransform("base_link","object", rospy.Time(),rospy.Duration(1))
-    (trans_head, rot_head) = listener.lookupTransform("base_link","object",rospy.Time(0))
-    print(trans_head)
+    listener.waitForTransform("object","base_link", rospy.Time(),rospy.Duration(1))
+    (trans_head, rot_head) = listener.lookupTransform("base_link","object", rospy.Time())
 
-    # Position and rotation of poses
-    #gripper_poses = [Pose(Point(trans.x + trans_head[0], trans.y + trans_head[1], trans.z + trans_head[2]),Quaternion(rot.x + rot_head[0], rot.y + rot_head[1], rot.z + rot_head[2], rot.w + rot_head[3])),Pose(Point(trans.x + trans_head[0], trans.y + trans_head[1], trans.z + trans_head[2]),Quaternion(rot.x + rot_head[0], rot.y + rot_head[1], rot.z + rot_head[2], rot.w + rot_head[3]))]
+    # Pick object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
+    q = quaternion_from_euler(0,1.5707,0)
 
-
-    #gripper_poses = [Pose(Point(0.1 + trans_head[0], 0 + trans_head[1], 0.2 + trans_head[2]),Quaternion(0,0,0,0.1)),Pose(Point(0.5, 0.5, 1.1),Quaternion(0,0,0,0.1))]
-    #gripper_poses = [Pose(Point(1, 0, 0.7),Quaternion(0,0,0,1))]
-
-    #gripper_poses = [Pose(Point(0.0790808050109 + trans_head[0], -0.00441955685437 + trans_head[1], 1.07850313818 + trans_head[2]),Quaternion(-0.722984581644 + rot_head[0], -0.623913222589 + rot_head[1], 0.0623081763131 + rot_head[2], 0.290074605142 + rot_head[3]))]
-    
-    #gripper_poses = [Pose(Point(trans.x + trans_head[0],trans.y+trans_head[1],trans.z+trans_head[2]),Quaternion(rot.x+rot_head[0],rot.y+rot_head[1],rot.z+rot_head[2],rot.w+rot_head[3]))]
-
-    #gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]-1),Quaternion(rot_head[0],rot_head[1],rot_head[2],rot_head[3]))]
-    gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]-1),Quaternion(0,0,0,1))]    
+    #gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]),Quaternion(rot_head[0],rot_head[1],rot_head[2],rot_head[3]))]
+    #gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]),Quaternion(0,0,0,1))]  
+    gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]+0.1),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans_head[0], trans_head[1], trans_head[2]),Quaternion(q[0],q[1],q[2],q[3]))]    
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
@@ -124,16 +123,25 @@ def pick():
     torso(0.05)
     head_tilt(1)
     rospy.sleep(1)
+    gripper(0.1)
 
 # Only calls the pick function once an object has been detected
-def pick_callback(msg):
-    if len(msg.transforms) > 0:
-        counter = 0
-        pick(msg)
-    elif counter < 50:
-        counter += 1
-        pick_listener()
-    counter = 0        
+#def pick_callback(msg):
+#    if len(msg.transforms) > 0:
+        
+
+
+
+
+#    if len(msg.transforms) > 0:
+#        counter = 0
+#        pick(msg)
+#    elif counter < 50:
+#        counter += 1
+#        pick_listener()
+#    else:
+#        print("No marker found")
+#    counter = 0        
 
 
 # Subscribe to aruco_detect topics for marker to camera transforms

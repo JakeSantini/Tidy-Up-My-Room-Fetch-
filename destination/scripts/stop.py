@@ -1,11 +1,17 @@
 #!/usr/bin/env python
-import rospy
-import actionlib
+import rospy, actionlib, sys, tf
 from std_msgs.msg import String
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from math import radians, degrees
 from actionlib_msgs.msg import *
 from geometry_msgs.msg import Point
+
+from control_msgs.msg import PointHeadAction, PointHeadGoal, GripperCommandAction, GripperCommandGoal
+from moveit_msgs.msg import MoveItErrorCodes
+from moveit_python import MoveGroupInterface, PlanningSceneInterface
+from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
+from std_msgs.msg import String
+from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
 
 def stop():
     # Stop navigation
@@ -30,18 +36,24 @@ def stop():
     goal.target_pose.pose.orientation.z = 0.0
     goal.target_pose.pose.orientation.w = 1.0
 
-    rospy.loginfo("Stoping")
+    rospy.loginfo("Stoping Navigation")
     ac.send_goal(goal)
 
     ac.wait_for_result(rospy.Duration(60))
 
-    if(ac.get_state() ==  GoalStatus.SUCCEEDED):
-            return True
+    #if(ac.get_state() ==  GoalStatus.SUCCEEDED):
+    #        return True
 
-    else:
-            return False
+    #else:
+    #        return False
 
     # Stop manipulation
+    
+    move_group = MoveGroupInterface("arm_with_torso", "base_link")
+    rospy.loginfo("Stopping Manipulation")
+    move_group.get_move_action().cancel_all_goals()
+
+
 
 # If a start or stop call is received act on this
 def callback(data):

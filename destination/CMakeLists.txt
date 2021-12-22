@@ -169,6 +169,8 @@ include_directories(
    scripts/pick.py
    #scripts/tts.py
    scripts/object_tf_broadcast.py
+   scripts/object_tf_broadcast2.py
+   scripts/Stage_1.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 
