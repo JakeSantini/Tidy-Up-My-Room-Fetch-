@@ -12,22 +12,29 @@ from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
 from tf.transformations import quaternion_from_euler
 
+##### To Do #####
+# Update table locations
+# Update table orientations
+# Update number of tables
+# Ensure object detection is robust
+
 # Initialise the sound client so Fetch can speak
 sc = SoundClient()
 rospy.sleep(1)
 
 # Initialise Tables and Storage Containers
 class table:
-    def _init_(self, location):
+    def __init__(self, location, name):
         self.location = location
+        self.name = name
         self.empty = False
 
-T1 = table([1,1])
-T2 = table([2,2])
-Tables = [T1,T2]
-RS = table([3,3])
-BS = table([4,4])
-home = table([0,0])
+Table1 = table([2,2],'Table 1')
+Table2 = table([2,-2],'Table 2')
+Tables = [Table1,Table2]
+RedStorage = table([3,0],'Red Storage')
+BlueStorage = table([-2,0],'Blue Storage')
+home = table([0,0],'Home')
 
 
 # Function that controls the head tilt
@@ -60,11 +67,13 @@ def torso(height):
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
-    planning_scene.removeCollisionObject("my_front_ground") # removes from world so in relation to base_link instead
+    # removes from world so in relation to base_link instead
+    planning_scene.removeCollisionObject("my_front_ground")
     planning_scene.removeCollisionObject("my_back_ground")
     planning_scene.removeCollisionObject("my_right_ground")
     planning_scene.removeCollisionObject("my_left_ground")
-    planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0) # name, size, x, y, z
+    # name, size, x, y, z
+    planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
@@ -80,7 +89,7 @@ def torso(height):
 
 
 def pick(msg):
-    # Determine how many objects and the chosen ones colour
+    # Determine how many objects, pick the first one and get its ID and colour
     if (len(msg) == 0):
         empty = True
         colour = None
@@ -92,11 +101,14 @@ def pick(msg):
             empty = False
         marker = msg.transforms[0]
         ID = marker.fiducial_id
-        if (ID == 100) or (ID == 101):
+        if (ID == 100):
             colour = 'red'
         else:
             colour = 'blue'
 
+    ###################
+
+    # Not sure if object 
     pub = rospy.Publisher('marker_transorm', object)
     rate = rospy.Rate(10) # 10hz
 
@@ -105,14 +117,18 @@ def pick(msg):
         pub.publish(marker)
         rate.sleep()
 
+    ####################  
+
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
+    # removes from world so in relation to base_link instead
     planning_scene.removeCollisionObject("my_front_ground")
     planning_scene.removeCollisionObject("my_back_ground")
     planning_scene.removeCollisionObject("my_right_ground")
     planning_scene.removeCollisionObject("my_left_ground")
+    # name, size, x, y, z
     planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
@@ -155,19 +171,25 @@ def pick_listener():
     torso(0.5)
     head_tilt(0.5)
     gripper(0.1)
+    rospy.sleep(2)
     empty, colour = rospy.Subscriber("fiducial_transforms", FiducialTransformArray, pick)
     return empty, colour
 
 
 def place():
+    torso(0.5)
+    head_tilt(0.5)
+
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
+    # removes from world so in relation to base_link instead
     planning_scene.removeCollisionObject("my_front_ground")
     planning_scene.removeCollisionObject("my_back_ground")
     planning_scene.removeCollisionObject("my_right_ground")
     planning_scene.removeCollisionObject("my_left_ground")
+    # name, size, x, y, z
     planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
@@ -177,11 +199,12 @@ def place():
 
     # Pick object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
     q = quaternion_from_euler(0,1.5707,0)
-    pose = [Pose(Point(1,0,1.5),Quaternion(q[0],q[1],q[2],q[3]))]    
+    pose = Pose(Point(0.5,0,0.75),Quaternion(q[0],q[1],q[2],q[3]))    
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
     gripper_pose_stamped.header.frame_id = 'base_link'
+    rospy.loginfo("Placing Object")
 
     gripper_pose_stamped.header.stamp = rospy.Time.now()
     gripper_pose_stamped.pose = pose
@@ -199,7 +222,7 @@ def place():
     
 
 # Navigate to location 
-def navigate(location):
+def navigate(table):
     # Define a client to send goal requests to the move_base server through a SimpleActionClient
     ac = actionlib.SimpleActionClient("move_base", MoveBaseAction)
 
@@ -213,13 +236,13 @@ def navigate(location):
     goal.target_pose.header.stamp = rospy.Time.now()
 
     # Moving towards goal
-    goal.target_pose.pose.position =  Point(location[0],location[1],0)
+    goal.target_pose.pose.position =  Point(table.location[0],table.location[1],0)
     goal.target_pose.pose.orientation.x = 0.0
     goal.target_pose.pose.orientation.y = 0.0
     goal.target_pose.pose.orientation.z = 0.0
     goal.target_pose.pose.orientation.w = 1.0
 
-    rospy.loginfo("Moving to location")
+    rospy.loginfo("Moving to " + table.name)
     ac.send_goal(goal)
     ac.wait_for_result(rospy.Duration(60))
 
@@ -232,17 +255,17 @@ def navigate(location):
 def start():
     for table in Tables:
         while not table.empty: # If the table is not empty
-            navigate = navigate(table.location) # navigate to table
-            if navigate == True:
+            response = navigate(table) # navigate to table
+            if response == True:
                 empty, colour = pick_listener() # pick an object up
                 table.empty = empty
                 if colour == 'red':
-                    navigate = navigate(RS.location) # if object is red go to red storage
+                    response = navigate(RedStorage) # if object is red go to red storage
                 elif colour == 'blue':
-                    navigate = navigate(BS.location) # else the object is blue therefore go to blue container
+                    response = navigate(BlueStorage) # else the object is blue therefore go to blue container
                 else:
                     break
-                if navigate == True:
+                if response == True:
                     place() # place the object in the container
                 else:
                     sc.say('Sorry I can not reach the container, please take the object from me')
@@ -252,12 +275,12 @@ def start():
                 sc.say('Sorry I can not reach the table')
                 break
 
-    navigate(home.location)
+    navigate(home)
     torso(0.05)
     head_tilt(1)
     gripper(0.1)
-    T1.empty == False
-    T2.empty == False
+    Table1.empty == False
+    Table2.empty == False
     sc.say('I have finished tidying let me know when you want me to start again')
 
 
@@ -268,7 +291,9 @@ if __name__ == '__main__':
     torso(0.05)
     head_tilt(1)
     gripper(0.1)
+
     sc.say('Hello my name is Fetch do you want me to start tidying?')
+    rospy.sleep(1)
   
     while True:    
         input_str = raw_input("Shall I Tidy? (yes/no/quit): ")    
@@ -276,6 +301,6 @@ if __name__ == '__main__':
             sc.say('I will begin tidying now')
             start() # start tidying
         elif input_str == 'quit':
-            break # maybe go home?
+            break 
         else:
             sc.say('Ok let me know when you want me to start')           

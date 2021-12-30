@@ -167,10 +167,11 @@ include_directories(
    scripts/user_input.py
    scripts/stop.py
    scripts/pick.py
-   #scripts/tts.py
+   scripts/tts.py
    scripts/object_tf_broadcast.py
-   scripts/object_tf_broadcast2.py
+   scripts/object_tf_broadcast_test.py
    scripts/Stage_1.py
+   scripts/Stage_1_Test.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 
