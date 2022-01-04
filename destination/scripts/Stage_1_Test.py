@@ -18,16 +18,17 @@ rospy.sleep(1)
 
 # Initialise Tables and Storage Containers
 class table:
-    def __init__(self, location, name):
+    def __init__(self, location, name, objects=1):
         self.location = location
         self.name = name
+        self.objects = objects
         self.empty = False
 
 Table1 = table([2,2],'Table 1')
 Table2 = table([2,-2],'Table 2')
 Tables = [Table1,Table2]
-RedStorage = table([3,0],'Red Storage')
-BlueStorage = table([-2,0],'Blue Storage')
+RedStorage = table([3,0],'Red Storage',1)
+BlueStorage = table([-2,0],'Blue Storage',1)
 home = table([0,0],'Home')
 
 
@@ -99,20 +100,14 @@ def pick():
         else:
             empty = False
         ID = 100
-        if (ID == 100) or (ID == 101):
+        if (ID == 100):
             colour = 'red'
+            RedStorage.objects -= 1
             rospy.loginfo("Red Object")
         else:
             colour = 'blue'
+            BlueStorage.objects -= 1
             rospy.loginfo("Blue Object")
-
-    #pub = rospy.Publisher('marker_transorm', object)
-    #rate = rospy.Rate(10) # 10hz
-
-    # Publish command for 1 seconds
-    #for x in range(0,10):          
-    #    pub.publish(marker)
-    #    rate.sleep()
 
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
@@ -250,13 +245,16 @@ def navigate(table):
 def start():
     for table in Tables:
         while not table.empty: # If the table is not empty
+            sc.say('I am moving to ' + table.name)
             response = navigate(table) # navigate to table
             if response == True:
                 empty, colour = pick() # pick an object up
                 table.empty = empty
                 if colour == 'red':
+                    sc.say('I am moving to the red storage')
                     response = navigate(RedStorage) # if object is red go to red storage
                 elif colour == 'blue':
+                    sc.say('I am moving to the blue storage')
                     response = navigate(BlueStorage) # else the object is blue therefore go to blue container
                 else:
                     break
@@ -270,12 +268,21 @@ def start():
                 sc.say('Sorry I can not reach the table')
                 break
 
+            if not RedStorage.objects:
+                sc.say('All red objects are complete')
+                rospy.sleep(1)
+            if not BlueStorage.objects:
+                sc.say('All blue objects are complete')
+                rospy.sleep(1)
+
     navigate(home)
     torso(0.05)
     head_tilt(1)
     gripper(0.1)
     Table1.empty == False
     Table2.empty == False
+    RedStorage.objects = 1
+    BlueStorage.objects = 1
     sc.say('I have finished tidying let me know when you want me to start again')
 
 
@@ -294,6 +301,7 @@ if __name__ == '__main__':
         input_str = raw_input("Shall I Tidy? (yes/no/quit): ")    
         if input_str == 'yes':
             sc.say('I will begin tidying now')
+            rospy.sleep(1)
             start() # start tidying
         elif input_str == 'quit':
             break
