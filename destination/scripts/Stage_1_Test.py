@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from os import _exit
 import rospy, sys, actionlib, tf
 from sound_play.libsoundplay import SoundClient
 from std_msgs.msg import String
@@ -15,6 +16,9 @@ from tf.transformations import quaternion_from_euler
 # Initialise the sound client so Fetch can speak
 sc = SoundClient()
 rospy.sleep(1)
+
+# Initialise global variables related to user input
+tidy = False
 
 # Initialise Tables and Storage Containers
 class table:
@@ -83,6 +87,7 @@ def torso(height):
     move_group.moveToJointPosition(joints, pose, wait=True)
 
 
+# Funciton that picks up an object
 def pick():
     msg = [1]
     torso(0.5)
@@ -166,6 +171,7 @@ def pick():
 #    return empty, colour
 
 
+# Function that places an object
 def place():
     torso(0.5)
     head_tilt(0.5)
@@ -211,8 +217,10 @@ def place():
     head_tilt(1)
     
 
-# Navigate to location 
+# Function that navigates to a location 
 def navigate(table):
+    sc.say('I am moving to ' + table.name)
+
     # Define a client to send goal requests to the move_base server through a SimpleActionClient
     ac = actionlib.SimpleActionClient("move_base", MoveBaseAction)
 
@@ -242,22 +250,39 @@ def navigate(table):
         return False
 
 
+# Function that sends Fetch home and resets values
+def reset():
+    torso(0.05)
+    head_tilt(1)
+    gripper(0.1)
+    navigate(home)
+    Table1.empty == False
+    Table2.empty == False
+    RedStorage.objects = 1
+    BlueStorage.objects = 1
+    sc.say('I have finished tidying')
+    rospy.sleep(1)
+
+
+# Function that loops through tables to find objects
 def start():
+    rospy.Subscriber("user_input", String, exception_action)
+
     for table in Tables:
         while not table.empty: # If the table is not empty
-            sc.say('I am moving to ' + table.name)
             response = navigate(table) # navigate to table
+
             if response == True:
                 empty, colour = pick() # pick an object up
                 table.empty = empty
+
                 if colour == 'red':
-                    sc.say('I am moving to the red storage')
                     response = navigate(RedStorage) # if object is red go to red storage
                 elif colour == 'blue':
-                    sc.say('I am moving to the blue storage')
-                    response = navigate(BlueStorage) # else the object is blue therefore go to blue container
+                    response = navigate(BlueStorage) # else the object is blue therefore go to blue container                   
                 else:
                     break
+
                 if response == True:
                     place() # place the object in the container
                 else:
@@ -275,28 +300,50 @@ def start():
                 sc.say('All blue objects are complete')
                 rospy.sleep(1)
 
-    navigate(home)
-    torso(0.05)
-    head_tilt(1)
-    gripper(0.1)
-    Table1.empty == False
-    Table2.empty == False
-    RedStorage.objects = 1
-    BlueStorage.objects = 1
-    sc.say('I have finished tidying let me know when you want me to start again')
+    reset()
+
+
+def exception_action(data):
+    rospy.loginfo("Actioning exception")
+    if (data.data == "stop assistance"):
+        reset()
+        exit()
+    elif (data.data == "stop emergency"):
+        #stop manipulation and navigation
+        exit()
+
+
+# Function that initiates start function when prompted by user
+def callback(data):
+    if (data.data == "start"):
+        global tidy
+        tidy = True
+    elif (data.data == "cancel"):
+        exit()
 
 
 # Fetch asks if it should start tidying
 if __name__ == '__main__':
     rospy.init_node('Main_Control')
+
+    # Wait for start/cancel signal
+    rospy.Subscriber("user_input", String, callback)
+
     # Start Fetch in default position
     torso(0.05)
     head_tilt(1)
     gripper(0.1)
-
+    
     sc.say('Hello my name is Fetch do you want me to start tidying?')
     rospy.sleep(1)
-  
+
+    # Start tidying when prompted
+    while True:
+        if tidy:
+            start()
+
+
+"""
     while True:    
         input_str = raw_input("Shall I Tidy? (yes/no/quit): ")    
         if input_str == 'yes':
@@ -306,4 +353,5 @@ if __name__ == '__main__':
         elif input_str == 'quit':
             break
         else:
-            sc.say('Ok let me know when you want me to start')           
+            sc.say('Ok let me know when you want me to start')   
+"""        
