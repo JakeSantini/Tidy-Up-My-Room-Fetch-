@@ -13,9 +13,10 @@ from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from std_msgs.msg import String
 from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
 
+
+
 def stop():
     # Stop navigation
-
     # Define a client to send goal requests to the move_base server through a SimpleActionClient
     ac = actionlib.SimpleActionClient("move_base", MoveBaseAction)
 
@@ -41,14 +42,7 @@ def stop():
 
     ac.wait_for_result(rospy.Duration(60))
 
-    #if(ac.get_state() ==  GoalStatus.SUCCEEDED):
-    #        return True
-
-    #else:
-    #        return False
-
     # Stop manipulation
-    
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     rospy.loginfo("Stopping Manipulation")
     move_group.get_move_action().cancel_all_goals()
@@ -57,16 +51,14 @@ def stop():
 
 # If a start or stop call is received act on this
 def callback(data):
-    if (data.data == "stop") or (data.data == "Stop"):
+    if (data.data == "stop emergency"):
         rospy.loginfo("Initiating %s sequence", data.data)
         stop()
 
-    
-# Subscribe to user_input topic
-def listener():
-    rospy.init_node('stop', anonymous=True)
-    rospy.Subscriber("user_input", String, callback)
-    rospy.spin()
+
 
 if __name__ == '__main__':
-    listener()
+    rospy.init_node('stop', anonymous=True)
+    
+    while not rospy.is_shutdown():
+        rospy.Subscriber("user_input", String, callback)

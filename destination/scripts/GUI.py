@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+'''
 from Tkinter import *
 
 top = Tk()
@@ -15,3 +16,17 @@ B2.pack(side = LEFT)
 B3.pack(side = LEFT)
 
 top.mainloop()
+'''
+
+def raiser():
+   raise ValueError
+
+if __name__ == '__main__':
+   try:
+      raiser()
+   except ValueError:
+      print("caught")
+      exit()
+
+   while True:
+      print("x")

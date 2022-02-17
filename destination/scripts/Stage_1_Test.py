@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from os import _exit
 import rospy, sys, actionlib, tf
 from sound_play.libsoundplay import SoundClient
 from std_msgs.msg import String
@@ -36,8 +35,10 @@ BlueStorage = table([-2,0],'Blue Storage',1)
 home = table([0,0],'Home')
 
 
+
 # Function that controls the head tilt
 def head_tilt(height):
+    rospy.Subscriber("user_input", String, exception_action)
     head_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
     head_client.wait_for_server()
     goal = PointHeadGoal()
@@ -50,8 +51,10 @@ def head_tilt(height):
     head_client.wait_for_result()
 
 
+
 # Function that controls the gripper
 def gripper(position):
+    rospy.Subscriber("user_input", String, exception_action)
     gripper = actionlib.SimpleActionClient("gripper_controller/gripper_action", GripperCommandAction)
     gripper.wait_for_server()
     goal = GripperCommandGoal()
@@ -61,8 +64,10 @@ def gripper(position):
     gripper.wait_for_result()
 
 
+
 # Function that controls the torso and arm tuck
 def torso(height):
+    rospy.Subscriber("user_input", String, exception_action)
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
@@ -87,8 +92,10 @@ def torso(height):
     move_group.moveToJointPosition(joints, pose, wait=True)
 
 
+
 # Funciton that picks up an object
 def pick():
+    rospy.Subscriber("user_input", String, exception_action)
     msg = [1]
     torso(0.5)
     head_tilt(0.5)
@@ -162,17 +169,10 @@ def pick():
     return empty, colour
  
 
-# Subscribe to aruco_detect topics for marker to camera transforms
-#def pick_listener():
-#    torso(0.5)
-#    head_tilt(0.5)
-#    gripper(0.1)
-#    empty, colour = rospy.Subscriber("fiducial_transforms", FiducialTransformArray, pick)
-#    return empty, colour
-
 
 # Function that places an object
 def place():
+    rospy.Subscriber("user_input", String, exception_action)
     torso(0.5)
     head_tilt(0.5)
 
@@ -217,8 +217,10 @@ def place():
     head_tilt(1)
     
 
+
 # Function that navigates to a location 
 def navigate(table):
+    rospy.Subscriber("user_input", String, exception_action)
     sc.say('I am moving to ' + table.name)
 
     # Define a client to send goal requests to the move_base server through a SimpleActionClient
@@ -250,8 +252,10 @@ def navigate(table):
         return False
 
 
+
 # Function that sends Fetch home and resets values
 def reset():
+    rospy.Subscriber("user_input", String, exception_action)
     torso(0.05)
     head_tilt(1)
     gripper(0.1)
@@ -262,6 +266,7 @@ def reset():
     BlueStorage.objects = 1
     sc.say('I have finished tidying')
     rospy.sleep(1)
+
 
 
 # Function that loops through tables to find objects
@@ -281,6 +286,7 @@ def start():
                 elif colour == 'blue':
                     response = navigate(BlueStorage) # else the object is blue therefore go to blue container                   
                 else:
+                    sc.say('Sorry I could not identify the object')
                     break
 
                 if response == True:
@@ -303,14 +309,15 @@ def start():
     reset()
 
 
+
 def exception_action(data):
     rospy.loginfo("Actioning exception")
     if (data.data == "stop assistance"):
         reset()
-        exit()
     elif (data.data == "stop emergency"):
-        #stop manipulation and navigation
-        exit()
+        # Shutdown rospy
+        rospy.signal_shutdown("Emergency Stop Requested")
+
 
 
 # Function that initiates start function when prompted by user
@@ -319,12 +326,13 @@ def callback(data):
         global tidy
         tidy = True
     elif (data.data == "cancel"):
-        exit()
+        rospy.signal_shutdown("Cancel Requested")
+
 
 
 # Fetch asks if it should start tidying
 if __name__ == '__main__':
-    rospy.init_node('Main_Control')
+    rospy.init_node('Main_Control', disable_signals=True)
 
     # Wait for start/cancel signal
     rospy.Subscriber("user_input", String, callback)
@@ -337,21 +345,7 @@ if __name__ == '__main__':
     sc.say('Hello my name is Fetch do you want me to start tidying?')
     rospy.sleep(1)
 
-    # Start tidying when prompted
-    while True:
+    while not rospy.is_shutdown():
+        # Start tidying when prompted
         if tidy:
-            start()
-
-
-"""
-    while True:    
-        input_str = raw_input("Shall I Tidy? (yes/no/quit): ")    
-        if input_str == 'yes':
-            sc.say('I will begin tidying now')
-            rospy.sleep(1)
-            start() # start tidying
-        elif input_str == 'quit':
-            break
-        else:
-            sc.say('Ok let me know when you want me to start')   
-"""        
+            start()   
