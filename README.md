@@ -1,1 +1,15 @@
-aruco_detect.launch is the launch file for marker detection, it subscribes to Fetch's camera. destinations is the main package containing my code. Within it... user_input.py will be a node that takes keyboard input and publishes it to the other nodes. tts.py is a generic script that implements text to speech and will be used inside the other scripts. stop.py is a node that stops navigation and manipulation when called. navigation.py sends Fetch to goals in the map. pick.py deals with the object manipulation, marker ID and MoveIt! marker_sub.py is a generic script to read marker info and will be used inside pick.py.
+aruco_detect.launch is the launch file for marker detection. This is where the marker dictionary and camera information are stored 
+
+user_input.py is a node that sets up a GUI and publishes input data to other nodes
+
+stop.py is a node that stops navigation and manipulation when called
+
+pick.py is generic test code that deals with the object manipulation, marker ID and MoveIt!
+
+object_tf_broadcast.py is the node that retrieves the object transorms and data from aruco detect and broadcasts this to the main controllers (test symobolises the simulation version)
+
+Stage_1 is the main control that implements stage 1 of the experiment (test symobolises the simulation version)
+
+Stage_2 is the main control that implements stage 2 of the experiment (test symobolises the simulation version)
+
+CMakeLists and package.xml are the setup scripts for ROS to run everything together
