@@ -15,7 +15,7 @@ def pick(msg):
         #print 'Translation: ', trans.x, trans.y, trans.z
         #print 'Rotation: ', rot.x, rot.y, rot.z, rot.w
         br = tf.TransformBroadcaster()
-        br.sendTransform((trans.x,trans.y,trans.z),(rot.x,rot.y,rot.z,rot.w),rospy.Time.now(),"object","head_camera_link")
+        br.sendTransform((trans.x,trans.y,trans.z),(rot.x,rot.y,rot.z,rot.w),rospy.Time.now(),"object","head_camera_rgb_optical_frame")
 
 def listener():
     rospy.init_node('marker_sub', anonymous=True)
