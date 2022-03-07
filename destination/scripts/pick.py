@@ -45,7 +45,7 @@ def torso(height):
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
     planning_scene.addCube("table", 1, 1, 0, 0)
-    planning_scene.addBox("base", 0.32,0.56,0.73,0.13,0,0)
+    planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
     joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
                   "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
@@ -56,6 +56,9 @@ def torso(height):
 
 # Function to pickup an object
 def pick():
+    torso(0.5)
+    head_tilt(0.5)
+    gripper(0.1)
 #def pick(msg):
     # Get tf information
     #marker = msg.transforms[0]
@@ -66,13 +69,13 @@ def pick():
     #print 'Translation: ', trans.x, trans.y, trans.z
     #print 'Rotation: ', rot.x, rot.y, rot.z, rot.w
 
-    transx = 0.00714426165428
-    transy = 0.204051632032
-    transz = 0.55055134137
-    rotx = 0.00188216955915
-    roty = 0.864120680408
-    rotz = -0.498701155419
-    rotw = -0.0677426358516
+    # transx = 0.00714426165428
+    # transy = 0.204051632032
+    # transz = 0.55055134137
+    # rotx = 0.00188216955915
+    # roty = 0.864120680408
+    # rotz = -0.498701155419
+    # rotw = -0.0677426358516
     #br = tf.TransformBroadcaster()
     #br.sendTransform((transx,transy,transz),(rotx,roty,rotz,rotw),rospy.Time.now(),"object","head_camera_link")
      
@@ -90,7 +93,7 @@ def pick():
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
     planning_scene.addCube("table", 1, 1, 0, 0)
-    planning_scene.addBox("base", 0.32,0.56,0.73,0.13,0,0)
+    planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
  
     listener = tf.TransformListener()
@@ -107,6 +110,7 @@ def pick():
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
     gripper_pose_stamped.header.frame_id = 'base_link'
+    rospy.loginfo("Picking Object")
 
     for pose in gripper_poses:
         gripper_pose_stamped.header.stamp = rospy.Time.now()
@@ -126,22 +130,17 @@ def pick():
     gripper(0.1)
 
 # Only calls the pick function once an object has been detected
-#def pick_callback(msg):
-#    if len(msg.transforms) > 0:
-        
+def pick_callback(msg):
 
-
-
-
-#    if len(msg.transforms) > 0:
-#        counter = 0
-#        pick(msg)
-#    elif counter < 50:
-#        counter += 1
-#        pick_listener()
-#    else:
-#        print("No marker found")
-#    counter = 0        
+   if len(msg.transforms) > 0:
+       counter = 0
+       pick(msg)
+   elif counter < 50:
+       counter += 1
+       pick_listener()
+   else:
+       print("No marker found")
+   counter = 0        
 
 
 # Subscribe to aruco_detect topics for marker to camera transforms
@@ -154,18 +153,4 @@ def pick_listener():
 
 if __name__ == '__main__':
     rospy.init_node("pick")
-    #pick_listener()
-
-
-    # Without marker test
-    torso(0.5)
-    head_tilt(0.5)
-    gripper(0.1)
     pick()
-
-
-
-
-
-
-

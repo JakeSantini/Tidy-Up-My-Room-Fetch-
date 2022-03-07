@@ -3,14 +3,12 @@ import rospy, sys, actionlib, tf
 from sound_play.libsoundplay import SoundClient
 from std_msgs.msg import String
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from math import radians, degrees
 from actionlib_msgs.msg import *
 from control_msgs.msg import PointHeadAction, PointHeadGoal, GripperCommandAction, GripperCommandGoal
-from moveit_msgs.msg import MoveItErrorCodes
 from moveit_python import MoveGroupInterface, PlanningSceneInterface
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
-from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
 from tf.transformations import quaternion_from_euler
+
 
 # Initialise the sound client so Fetch can speak
 sc = SoundClient()
@@ -69,6 +67,7 @@ def gripper(position):
 def torso(height):
     rospy.Subscriber("user_input", String, exception_action)
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
+
     # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
     # removes from world so in relation to base_link instead
@@ -82,14 +81,14 @@ def torso(height):
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
     planning_scene.addCube("table", 1, 1, 0, 0)
-    planning_scene.addBox("base", 0.32,0.56,0.73,0.13,0,0)
+    planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
     joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
                   "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
     pose = [height, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
 
     # Plans the joints in joint_names to angles in pose
-    move_group.moveToJointPosition(joints, pose, wait=True)
+    move_group.moveToJointPosition(joints, pose, wait=True, max_velocity_scaling_factor=0.3)
 
 
 
@@ -136,7 +135,7 @@ def pick():
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
     planning_scene.addCube("table", 1, 1, 0, 0)
-    planning_scene.addBox("base", 0.32,0.56,0.73,0.13,0,0)
+    planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
     listener = tf.TransformListener()
     listener.waitForTransform("object","base_link", rospy.Time(),rospy.Duration(1))
@@ -156,14 +155,14 @@ def pick():
         gripper_pose_stamped.pose = pose
 
         # Move gripper frame to the pose specified
-        move_group.moveToPose(gripper_pose_stamped, 'gripper_link')
+        move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=0.3)
 
     rospy.sleep(1)
     gripper(0)
     rospy.sleep(1)
     torso(0.5)
     rospy.sleep(1)
-    torso(0.05)
+    torso(0.75)
     head_tilt(1)
 
     return empty, colour
@@ -191,7 +190,7 @@ def place():
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
     planning_scene.addCube("table", 1, 1, 0, 0)
-    planning_scene.addBox("base", 0.32,0.56,0.73,0.13,0,0)
+    planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
     # Pick object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
     q = quaternion_from_euler(0,1.5707,0)
@@ -206,14 +205,14 @@ def place():
     gripper_pose_stamped.pose = pose
 
     # Move gripper frame to the pose specified
-    move_group.moveToPose(gripper_pose_stamped, 'gripper_link')
+    move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=0.3)
 
     rospy.sleep(1)
     gripper(0.1)
     rospy.sleep(1)
     torso(0.5)
     rospy.sleep(1)
-    torso(0.05)
+    torso(0.75)
     head_tilt(1)
     
 
@@ -256,7 +255,7 @@ def navigate(table):
 # Function that sends Fetch home and resets values
 def reset():
     rospy.Subscriber("user_input", String, exception_action)
-    torso(0.05)
+    torso(0.75)
     head_tilt(1)
     gripper(0.1)
     navigate(home)
@@ -265,7 +264,8 @@ def reset():
     RedStorage.objects = 1
     BlueStorage.objects = 1
     sc.say('I have finished tidying')
-    rospy.sleep(1)
+    while True:
+        rospy.sleep(1)
 
 
 
@@ -311,10 +311,11 @@ def start():
 
 
 def exception_action(data):
-    rospy.loginfo("Actioning exception")
     if (data.data == "stop assistance"):
+        rospy.loginfo("Actioning exception")
         reset()
     elif (data.data == "stop emergency"):
+        rospy.loginfo("Actioning exception")
         # Shutdown rospy
         rospy.signal_shutdown("Emergency Stop Requested")
 
@@ -338,7 +339,7 @@ if __name__ == '__main__':
     rospy.Subscriber("user_input", String, callback)
 
     # Start Fetch in default position
-    torso(0.05)
+    torso(0.75)
     head_tilt(1)
     gripper(0.1)
     

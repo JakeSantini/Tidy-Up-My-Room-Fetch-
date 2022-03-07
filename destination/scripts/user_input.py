@@ -3,52 +3,57 @@
 import rospy
 from std_msgs.msg import String
 from Tkinter import *
-from moveit_python import MoveGroupInterface
 
 
-
-def start():
-    rospy.loginfo("Start Selected")
+# Function that signals main node to 'start'
+def yes():
+    rospy.loginfo("Yes Selected")
     pub.publish("start")
 
 
+# Function that signals main node to 'cancel'
+def no():
+    rospy.loginfo("No Selected")         
+    pub.publish("cancel")
 
+
+# Function that signals nodes to 'stop assistance'
 def stop_assistance():
     rospy.loginfo("Stop Assistance Selected")
     pub.publish("stop assistance")
  
 
-
+# Function that signals nodes to 'emergency stop'
 def stop_emergency():
     rospy.loginfo("Emergency Stop Selected")
     pub.publish("stop emergency")
 
 
+# Setup node and publisher
+rospy.init_node('user_input', anonymous=True)
+pub = rospy.Publisher('user_input', String, queue_size=10)
 
-def cancel():
-    rospy.loginfo("Cancel Selected")         
-    pub.publish("cancel")
+# Tkinter Loop
+top = Tk()
 
+#Create 2x2 grid of buttons
+Grid.rowconfigure(top, 0, weight=1)
+Grid.columnconfigure(top, 0, weight=1)
 
+frame=Frame(top)
+frame.grid(row=0, column=0, sticky=N+S+E+W)
 
-if __name__ == '__main__':
-    # Setup node and publisher
-    rospy.init_node('user_input', anonymous=True)
-    pub = rospy.Publisher('user_input', String, queue_size=10)
+btn_names = ['Yes','No','Stop Assistance','Emergency Stop']
+btn_commands = [lambda : yes(),lambda : no(),lambda : stop_assistance(),lambda : stop_emergency()]
+index = 0
+
+for row in range(2):
+    Grid.rowconfigure(frame, row, weight=1)
+    for col in range(2):
+        Grid.columnconfigure(frame, col, weight=1)
+        btn = Button(frame, background='white', height = 20, width = 100, text = btn_names[index], command = btn_commands[index])
+        btn.grid(row=row, column=col, sticky=N+S+E+W)
+        index += 1
+
+top.mainloop()
     
-    while not rospy.is_shutdown():
-        
-        top = Tk()
-
-        B1 = Button(top, text ="Yes, Tidy", command = lambda : start(), height = 10, width = 50)
-        B2 = Button(top, text ="No, Turn Off", command = lambda : cancel(), height = 10, width = 50)
-        B3 = Button(top, text ="Stop Assistance", command = lambda : stop_assistance(), height = 10, width = 50)
-        B4 = Button(top, text ="Emergency Stop", command = lambda : stop_emergency(), height = 10, width = 50)
-
-        B1.pack(side = LEFT)
-        B2.pack(side = LEFT)
-        B3.pack(side = LEFT)
-        B4.pack(side = LEFT)
-        top.mainloop()
-
-        #top.destroy
