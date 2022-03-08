@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from logging import INFO
 import rospy, sys, actionlib, tf
 from sound_play.libsoundplay import SoundClient
 from std_msgs.msg import String
@@ -16,6 +17,8 @@ rospy.sleep(1)
 
 # Initialise global variables related to user input
 tidy = False
+
+velocity_scale = 1
 
 # Initialise Tables and Storage Containers
 class table:
@@ -88,37 +91,44 @@ def torso(height):
     pose = [height, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
 
     # Plans the joints in joint_names to angles in pose
-    move_group.moveToJointPosition(joints, pose, wait=True, max_velocity_scaling_factor=0.3)
+    move_group.moveToJointPosition(joints, pose, wait=True, max_velocity_scaling_factor=velocity_scale)
 
 
 
 # Funciton that picks up an object
 def pick():
     rospy.Subscriber("user_input", String, exception_action)
-    msg = [1]
+
     torso(0.5)
     head_tilt(0.5)
     gripper(0.1)
 
-    # Determine how many objects and the chosen ones colour
-    if (len(msg) == 0):
+
+    pick_pub.publish('pick')
+    info = rospy.wait_for_message("num_markers", String, 10)
+    rospy.loginfo(info)
+    info = info.data
+    rospy.loginfo(info)
+    num_markers = int(info[0])
+    ID = int(info[2])
+
+
+    # Determine how many objects and if the table is empty
+    if (num_markers == 0):
         empty = True
         colour = None
         return empty, colour
+    elif (num_markers == 1):
+        empty = True
+
+    if (ID == 1):
+        colour = 'red'
+        RedStorage.objects -= 1
+        rospy.loginfo("Red Object")
     else:
-        if (len(msg) == 1):
-            empty = True
-        else:
-            empty = False
-        ID = 100
-        if (ID == 100):
-            colour = 'red'
-            RedStorage.objects -= 1
-            rospy.loginfo("Red Object")
-        else:
-            colour = 'blue'
-            BlueStorage.objects -= 1
-            rospy.loginfo("Blue Object")
+        colour = 'blue'
+        BlueStorage.objects -= 1
+        rospy.loginfo("Blue Object")
 
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
@@ -155,14 +165,14 @@ def pick():
         gripper_pose_stamped.pose = pose
 
         # Move gripper frame to the pose specified
-        move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=0.3)
+        move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
 
     rospy.sleep(1)
     gripper(0)
     rospy.sleep(1)
     torso(0.5)
     rospy.sleep(1)
-    torso(0.75)
+    torso(0.075)
     head_tilt(1)
 
     return empty, colour
@@ -205,14 +215,14 @@ def place():
     gripper_pose_stamped.pose = pose
 
     # Move gripper frame to the pose specified
-    move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=0.3)
+    move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
 
     rospy.sleep(1)
     gripper(0.1)
     rospy.sleep(1)
     torso(0.5)
     rospy.sleep(1)
-    torso(0.75)
+    torso(0.075)
     head_tilt(1)
     
 
@@ -255,7 +265,7 @@ def navigate(table):
 # Function that sends Fetch home and resets values
 def reset():
     rospy.Subscriber("user_input", String, exception_action)
-    torso(0.75)
+    torso(0.075)
     head_tilt(1)
     gripper(0.1)
     navigate(home)
@@ -334,12 +344,13 @@ def callback(data):
 # Fetch asks if it should start tidying
 if __name__ == '__main__':
     rospy.init_node('Main_Control', disable_signals=True)
+    pick_pub = rospy.Publisher('pick', String, queue_size=10)
 
     # Wait for start/cancel signal
     rospy.Subscriber("user_input", String, callback)
 
     # Start Fetch in default position
-    torso(0.75)
+    torso(0.075)
     head_tilt(1)
     gripper(0.1)
     

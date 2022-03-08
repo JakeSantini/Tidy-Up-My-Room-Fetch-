@@ -3,7 +3,7 @@
   </node>
   <node pkg="destination" name="user_input" type="user_input.py" output="screen">
   </node>
-  <node pkg="destination" name="object_tf_broadcaster" type="object_tf_broadcast_test.py" output="screen">
+  <node pkg="destination" name="marker" type="marker.py" output="screen">
   </node>
   <node pkg="destination" name="stop" type="stop.py" output="screen">
   </node>
