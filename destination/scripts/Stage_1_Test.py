@@ -17,6 +17,7 @@ rospy.sleep(1)
 
 # Initialise global variables related to user input
 tidy = False
+cont = False
 
 velocity_scale = 1
 
@@ -105,21 +106,24 @@ def pick():
 
 
     pick_pub.publish('pick')
-    info = rospy.wait_for_message("num_markers", String, 10)
-    rospy.loginfo(info)
-    info = info.data
-    rospy.loginfo(info)
-    num_markers = int(info[0])
-    ID = int(info[2])
+    try:
+        info = rospy.wait_for_message("num_markers", String, 10)
+        rospy.loginfo(info)
+        info = info.data
+        rospy.loginfo(info)
+        num_markers = int(info[0])
+        ID = int(info[2])
+    except:
+        return True, 'N/A'
 
 
     # Determine how many objects and if the table is empty
     if (num_markers == 0):
-        empty = True
-        colour = None
-        return empty, colour
+        return True, 'N/A'
     elif (num_markers == 1):
         empty = True
+    else:
+        empty = False
 
     if (ID == 1):
         colour = 'red'
@@ -262,49 +266,46 @@ def navigate(table):
 
 
 
-# Function that sends Fetch home and resets values
-def reset():
+# Function that sends Fetch home and go_homes values
+def go_home():
     rospy.Subscriber("user_input", String, exception_action)
     torso(0.075)
     head_tilt(1)
     gripper(0.1)
     navigate(home)
-    Table1.empty == False
-    Table2.empty == False
-    RedStorage.objects = 1
-    BlueStorage.objects = 1
-    sc.say('I have finished tidying')
-    while True:
-        rospy.sleep(1)
-
 
 
 # Function that loops through tables to find objects
-def start():
+def clean():
     rospy.Subscriber("user_input", String, exception_action)
 
     for table in Tables:
         while not table.empty: # If the table is not empty
-            response = navigate(table) # navigate to table
+            response1 = navigate(table) # navigate to table
 
-            if response == True:
+            if response1 == True:
                 empty, colour = pick() # pick an object up
                 table.empty = empty
 
                 if colour == 'red':
-                    response = navigate(RedStorage) # if object is red go to red storage
+                    response2 = navigate(RedStorage) # if object is red go to red storage
                 elif colour == 'blue':
-                    response = navigate(BlueStorage) # else the object is blue therefore go to blue container                   
+                    response2 = navigate(BlueStorage) # else the object is blue therefore go to blue container                   
                 else:
                     sc.say('Sorry I could not identify the object')
                     break
 
-                if response == True:
+                if response2 == True:
                     place() # place the object in the container
                 else:
                     sc.say('Sorry I can not reach the container, please take the object from me')
+                    rospy.sleep(1)
                     gripper(0.1)
-                    rospy.sleep(10)
+                    sc.say('Press continue once you have taken it')
+                    while not cont:
+                        rospy.sleep(1)
+                    global cont
+                    cont = False
             else:
                 sc.say('Sorry I can not reach the table')
                 break
@@ -316,18 +317,33 @@ def start():
                 sc.say('All blue objects are complete')
                 rospy.sleep(1)
 
-    reset()
+    # Reset values
+    Table1.empty == False
+    Table2.empty == False
+    RedStorage.objects = 1
+    BlueStorage.objects = 1
+    sc.say('I have finished tidying')
+    rospy.sleep(1)
+    go_home()
 
 
 
 def exception_action(data):
     if (data.data == "stop assistance"):
-        rospy.loginfo("Actioning exception")
-        reset()
+        rospy.loginfo("Actioning Stop Assistance")
+        sc.say('I am going home')
+        go_home()
+        while True:
+            rospy.sleep(1)
     elif (data.data == "stop emergency"):
-        rospy.loginfo("Actioning exception")
+        rospy.loginfo("Actioning Emergency Stop")
         # Shutdown rospy
         rospy.signal_shutdown("Emergency Stop Requested")
+        while True:
+            rospy.sleep(1)
+    elif (data.data == "continue"):
+        global cont
+        cont = True
 
 
 
@@ -336,28 +352,35 @@ def callback(data):
     if (data.data == "start"):
         global tidy
         tidy = True
-    elif (data.data == "cancel"):
+    elif (data.data == "stop assistance"):
         rospy.signal_shutdown("Cancel Requested")
 
+
+def start():
+    # Wait for start/cancel signal
+    rospy.Subscriber("user_input", String, callback)
+    
+    sc.say('Let me know when you want me to start tidying')
+    rospy.sleep(1)
+    global tidy
+
+    while not rospy.is_shutdown():
+        # Start tidying when prompted
+        if tidy:
+            clean()
+            tidy = False
 
 
 # Fetch asks if it should start tidying
 if __name__ == '__main__':
     rospy.init_node('Main_Control', disable_signals=True)
     pick_pub = rospy.Publisher('pick', String, queue_size=10)
-
-    # Wait for start/cancel signal
-    rospy.Subscriber("user_input", String, callback)
+    rospy.Subscriber("user_input", String, exception_action)
 
     # Start Fetch in default position
     torso(0.075)
     head_tilt(1)
     gripper(0.1)
-    
-    sc.say('Hello my name is Fetch do you want me to start tidying?')
-    rospy.sleep(1)
 
-    while not rospy.is_shutdown():
-        # Start tidying when prompted
-        if tidy:
-            start()   
+    sc.say('Hello my name is Fetch')
+    rospy.sleep(1)

@@ -13,8 +13,8 @@ def yes():
 
 # Function that signals main node to 'cancel'
 def no():
-    rospy.loginfo("No Selected")         
-    pub.publish("cancel")
+    rospy.loginfo("Continue Selected")         
+    pub.publish("continue")
 
 
 # Function that signals nodes to 'stop assistance'
@@ -43,7 +43,7 @@ Grid.columnconfigure(top, 0, weight=1)
 frame=Frame(top)
 frame.grid(row=0, column=0, sticky=N+S+E+W)
 
-btn_names = ['Yes','No','Stop Assistance','Emergency Stop']
+btn_names = ['Yes','Continue','Stop Assistance','Emergency Stop']
 btn_commands = [lambda : yes(),lambda : no(),lambda : stop_assistance(),lambda : stop_emergency()]
 index = 0
 
