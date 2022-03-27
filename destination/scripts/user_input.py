@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # license removed for brevity
-import rospy
+import rospy, sys
 from std_msgs.msg import String
 from Tkinter import *
 
 
 # Function that signals main node to 'start'
-def yes():
+def start():
     rospy.loginfo("Yes Selected")
     pub.publish("start")
 
 
 # Function that signals main node to 'cancel'
-def no():
+def cont():
     rospy.loginfo("Continue Selected")         
     pub.publish("continue")
 
@@ -21,16 +21,20 @@ def no():
 def stop_assistance():
     rospy.loginfo("Stop Assistance Selected")
     pub.publish("stop assistance")
+    rospy.signal_shutdown("Stop Assistance Requested")
+    sys.exit(0)
  
 
 # Function that signals nodes to 'emergency stop'
 def stop_emergency():
     rospy.loginfo("Emergency Stop Selected")
     pub.publish("stop emergency")
+    rospy.signal_shutdown("Emergency Stop Selected")
+    sys.exit(0)
 
 
 # Setup node and publisher
-rospy.init_node('user_input', anonymous=True)
+rospy.init_node('user_input', anonymous=True, disable_signals=True)
 pub = rospy.Publisher('user_input', String, queue_size=10)
 
 # Tkinter Loop
@@ -43,8 +47,8 @@ Grid.columnconfigure(top, 0, weight=1)
 frame=Frame(top)
 frame.grid(row=0, column=0, sticky=N+S+E+W)
 
-btn_names = ['Yes','Continue','Stop Assistance','Emergency Stop']
-btn_commands = [lambda : yes(),lambda : no(),lambda : stop_assistance(),lambda : stop_emergency()]
+btn_names = ['Start','Continue','Stop Assistance','Emergency Stop']
+btn_commands = [lambda : start(),lambda : cont(),lambda : stop_assistance(),lambda : stop_emergency()]
 index = 0
 
 for row in range(2):

@@ -18,6 +18,7 @@ rospy.sleep(1)
 # Initialise global variables related to user input
 tidy = False
 cont = False
+stop_tidy = False
 
 velocity_scale = 1
 
@@ -39,16 +40,15 @@ home = table([0,0],'Home')
 
 
 # Function that controls the head tilt
-def head_tilt(height):
-    rospy.Subscriber("user_input", String, exception_action)
+def head_tilt(x,y,z):
     head_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
     head_client.wait_for_server()
     goal = PointHeadGoal()
     goal.target.header.stamp = rospy.Time.now()
     goal.target.header.frame_id = "base_link"
-    goal.target.point.x = 1
-    goal.target.point.y = 0
-    goal.target.point.z = height
+    goal.target.point.x = x
+    goal.target.point.y = y
+    goal.target.point.z = z
     head_client.send_goal(goal)
     head_client.wait_for_result()
 
@@ -56,7 +56,6 @@ def head_tilt(height):
 
 # Function that controls the gripper
 def gripper(position):
-    rospy.Subscriber("user_input", String, exception_action)
     gripper = actionlib.SimpleActionClient("gripper_controller/gripper_action", GripperCommandAction)
     gripper.wait_for_server()
     goal = GripperCommandGoal()
@@ -69,7 +68,6 @@ def gripper(position):
 
 # Function that controls the torso and arm tuck
 def torso(height):
-    rospy.Subscriber("user_input", String, exception_action)
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
 
     # Define ground plane to avoid collisions
@@ -79,12 +77,16 @@ def torso(height):
     planning_scene.removeCollisionObject("my_back_ground")
     planning_scene.removeCollisionObject("my_right_ground")
     planning_scene.removeCollisionObject("my_left_ground")
+    planning_scene.removeCollisionObject("table")
+    planning_scene.removeCollisionObject("base")
     # name, size, x, y, z
     planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
-    planning_scene.addCube("table", 1, 1, 0, 0)
+    # x2 = 0.3+0.5*x1, z2 = 0.5*z1
+    planning_scene.addBox("table", 1,2,0.75,0.8,0,0.375)
+    # name, xyz size, xyz position 
     planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
     joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
@@ -96,12 +98,11 @@ def torso(height):
 
 
 
-# Funciton that picks up an object
+# Function that picks up an object
 def pick():
-    rospy.Subscriber("user_input", String, exception_action)
 
     torso(0.5)
-    head_tilt(0.5)
+    head_tilt(1,0,0.5)
     gripper(0.1)
 
 
@@ -143,12 +144,14 @@ def pick():
     planning_scene.removeCollisionObject("my_back_ground")
     planning_scene.removeCollisionObject("my_right_ground")
     planning_scene.removeCollisionObject("my_left_ground")
+    planning_scene.removeCollisionObject("table")
+    planning_scene.removeCollisionObject("base")
     # name, size, x, y, z
     planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
-    planning_scene.addCube("table", 1, 1, 0, 0)
+    planning_scene.addBox("table", 1,2,0.75,0.8,0,0.375)
     planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
     listener = tf.TransformListener()
@@ -173,11 +176,12 @@ def pick():
 
     rospy.sleep(1)
     gripper(0)
+    # planning_scene.attachCube("object",0.05,0,0,0,'gripper_link','gripper_link')
     rospy.sleep(1)
     torso(0.5)
     rospy.sleep(1)
     torso(0.075)
-    head_tilt(1)
+    head_tilt(1,0,1)
 
     return empty, colour
  
@@ -185,9 +189,8 @@ def pick():
 
 # Function that places an object
 def place():
-    rospy.Subscriber("user_input", String, exception_action)
     torso(0.5)
-    head_tilt(0.5)
+    head_tilt(1,0,0.5)
 
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
@@ -198,12 +201,14 @@ def place():
     planning_scene.removeCollisionObject("my_back_ground")
     planning_scene.removeCollisionObject("my_right_ground")
     planning_scene.removeCollisionObject("my_left_ground")
+    planning_scene.removeCollisionObject("table")
+    planning_scene.removeCollisionObject("base")
     # name, size, x, y, z
     planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
-    planning_scene.addCube("table", 1, 1, 0, 0)
+    #planning_scene.addBox("table", 1,2,0.75,0.8,0,0.375)
     planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
     # Pick object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
@@ -223,17 +228,18 @@ def place():
 
     rospy.sleep(1)
     gripper(0.1)
+    #planning_scene.removeAttachedObject("object")
+    #planning_scene.removeCollisionObject("object")
     rospy.sleep(1)
     torso(0.5)
     rospy.sleep(1)
     torso(0.075)
-    head_tilt(1)
+    head_tilt(1,0,1)
     
 
 
 # Function that navigates to a location 
 def navigate(table):
-    rospy.Subscriber("user_input", String, exception_action)
     sc.say('I am moving to ' + table.name)
 
     # Define a client to send goal requests to the move_base server through a SimpleActionClient
@@ -266,22 +272,14 @@ def navigate(table):
 
 
 
-# Function that sends Fetch home and go_homes values
-def go_home():
-    rospy.Subscriber("user_input", String, exception_action)
-    torso(0.075)
-    head_tilt(1)
-    gripper(0.1)
-    navigate(home)
-
-
 # Function that loops through tables to find objects
 def clean():
-    rospy.Subscriber("user_input", String, exception_action)
 
     for table in Tables:
         while not table.empty: # If the table is not empty
             response1 = navigate(table) # navigate to table
+            if not tidy:
+                break
 
             if response1 == True:
                 empty, colour = pick() # pick an object up
@@ -316,59 +314,45 @@ def clean():
             if not BlueStorage.objects:
                 sc.say('All blue objects are complete')
                 rospy.sleep(1)
+            
+        if not tidy:
+            break
 
-    # Reset values
-    Table1.empty == False
-    Table2.empty == False
-    RedStorage.objects = 1
-    BlueStorage.objects = 1
+    navigate(home)
     sc.say('I have finished tidying')
     rospy.sleep(1)
-    go_home()
+    rospy.loginfo("Finished Tidying")
+    rospy.signal_shutdown("Finished Tidying")
+    sys.exit(0)
 
 
 
 def exception_action(data):
-    if (data.data == "stop assistance"):
+    if ((data.data == "stop assistance") and (tidy == False)):
+        rospy.loginfo("Cancelling")
+        rospy.signal_shutdown("Cancel Requested")
+        sys.exit(0)
+    
+    elif (data.data == "stop assistance"):
         rospy.loginfo("Actioning Stop Assistance")
-        sc.say('I am going home')
-        go_home()
-        while True:
-            rospy.sleep(1)
+        global tidy
+        tidy = False
+
+    elif (data.data == "start"):
+        rospy.loginfo("Starting")
+        global tidy
+        tidy = True
+
     elif (data.data == "stop emergency"):
         rospy.loginfo("Actioning Emergency Stop")
-        # Shutdown rospy
         rospy.signal_shutdown("Emergency Stop Requested")
-        while True:
-            rospy.sleep(1)
+        sys.exit(0)
+
     elif (data.data == "continue"):
+        rospy.loginfo("Continue Requested")
         global cont
         cont = True
 
-
-
-# Function that initiates start function when prompted by user
-def callback(data):
-    if (data.data == "start"):
-        global tidy
-        tidy = True
-    elif (data.data == "stop assistance"):
-        rospy.signal_shutdown("Cancel Requested")
-
-
-def start():
-    # Wait for start/cancel signal
-    rospy.Subscriber("user_input", String, callback)
-    
-    sc.say('Let me know when you want me to start tidying')
-    rospy.sleep(1)
-    global tidy
-
-    while not rospy.is_shutdown():
-        # Start tidying when prompted
-        if tidy:
-            clean()
-            tidy = False
 
 
 # Fetch asks if it should start tidying
@@ -379,8 +363,13 @@ if __name__ == '__main__':
 
     # Start Fetch in default position
     torso(0.075)
-    head_tilt(1)
+    head_tilt(1,0,1)
     gripper(0.1)
 
-    sc.say('Hello my name is Fetch')
+    sc.say('Hello my name is Fetch, let me know when you want me to start tidying','voice_us1_mbrola')
     rospy.sleep(1)
+
+    while not rospy.is_shutdown():
+        # Start tidying when prompted
+        if tidy:
+            clean()
