@@ -45,7 +45,7 @@ rospy.Subscriber('close', String, close)
 # Tkinter Loop
 top = Tk()
 
-#Create 2x2 grid of buttons
+#Create 2x2 grid of window dynamic buttons
 Grid.rowconfigure(top, 0, weight=1)
 Grid.columnconfigure(top, 0, weight=1)
 

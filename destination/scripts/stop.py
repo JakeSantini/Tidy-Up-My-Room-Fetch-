@@ -1,12 +1,11 @@
 #!/usr/bin/env python
-import rospy, actionlib
+import rospy, actionlib, sys
 from std_msgs.msg import String
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from actionlib_msgs.msg import *
 from geometry_msgs.msg import Point
 from moveit_python import MoveGroupInterface
 from std_msgs.msg import String
-
 
 
 def stop():
@@ -41,14 +40,15 @@ def stop():
     rospy.loginfo("Stopping Manipulation")
     move_group.get_move_action().cancel_all_goals()
 
+    rospy.signal_shutdown("Emergency Stop Selected")
+    sys.exit(0)
 
 
-# If a start or stop call is received act on this
+# If emergency stop requested
 def callback(data):
     if (data.data == "stop emergency"):
         rospy.loginfo("Initiating %s sequence", data.data)
         stop()
-
 
 
 if __name__ == '__main__':

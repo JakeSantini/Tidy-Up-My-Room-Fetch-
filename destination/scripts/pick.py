@@ -9,6 +9,7 @@ from control_msgs.msg import PointHeadAction, PointHeadGoal, GripperCommandActio
 from moveit_python import MoveGroupInterface, PlanningSceneInterface
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
 from tf.transformations import quaternion_from_euler
+from math import pi
 
 velocity_scale = 1
 sc = SoundClient()
@@ -176,10 +177,7 @@ def navigate(table):
 
     # Define a client to send goal requests to the move_base server through a SimpleActionClient
     ac = actionlib.SimpleActionClient("move_base", MoveBaseAction)
-
-    # Wait for the action server to come up
-    while(not ac.wait_for_server(rospy.Duration.from_sec(5.0))):
-        rospy.loginfo("Waiting for the move_base action server to come up")
+    ac.wait_for_server(rospy.Duration(5))
 
     # Set up the frame parameters
     goal = MoveBaseGoal()
@@ -188,10 +186,8 @@ def navigate(table):
 
     # Moving towards goal
     goal.target_pose.pose.position =  Point(table.location[0],table.location[1],0)
-    goal.target_pose.pose.orientation.x = 0.0
-    goal.target_pose.pose.orientation.y = 0.0
-    goal.target_pose.pose.orientation.z = 0.0
-    goal.target_pose.pose.orientation.w = 1.0
+    orientation = Quaternion(*quaternion_from_euler(0,0,pi/2))
+    goal.target_pose.pose.orientation = orientation
 
     rospy.loginfo("Moving to " + table.name)
     ac.send_goal(goal)
@@ -205,8 +201,8 @@ def navigate(table):
 
 if __name__ == '__main__':
     rospy.init_node("pick")
-    pick_pub = rospy.Publisher('pick', String, queue_size=10)
-    empty, colour = pick()
-    print(empty, colour)
-    #navigate(home)
+    #pick_pub = rospy.Publisher('pick', String, queue_size=10)
+    #empty, colour = pick()
+    #print(empty, colour)
+    navigate(Table1)
 
