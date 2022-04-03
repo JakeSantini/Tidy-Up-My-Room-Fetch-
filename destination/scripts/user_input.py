@@ -21,8 +21,6 @@ def cont():
 def stop_assistance():
     rospy.loginfo("Stop Assistance Selected")
     pub.publish("stop assistance")
-    rospy.signal_shutdown("Stop Assistance Requested")
-    sys.exit(0)
  
 
 # Function that signals nodes to 'emergency stop'
@@ -33,9 +31,16 @@ def stop_emergency():
     sys.exit(0)
 
 
+# Function to close node when finished
+def close(msg):
+    rospy.signal_shutdown("Finished")
+    sys.exit(0)
+
+
 # Setup node and publisher
 rospy.init_node('user_input', anonymous=True, disable_signals=True)
 pub = rospy.Publisher('user_input', String, queue_size=10)
+rospy.Subscriber('close', String, close)
 
 # Tkinter Loop
 top = Tk()

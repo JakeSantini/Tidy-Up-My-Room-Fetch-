@@ -1,25 +1,47 @@
 #!/usr/bin/env python
+from logging import INFO
 import rospy, sys, actionlib, tf
+from sound_play.libsoundplay import SoundClient
+from std_msgs.msg import String
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from actionlib_msgs.msg import *
 from control_msgs.msg import PointHeadAction, PointHeadGoal, GripperCommandAction, GripperCommandGoal
-from moveit_msgs.msg import MoveItErrorCodes
 from moveit_python import MoveGroupInterface, PlanningSceneInterface
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
-from std_msgs.msg import String
-from fiducial_msgs.msg import FiducialTransform, FiducialTransformArray
 from tf.transformations import quaternion_from_euler
 
+velocity_scale = 1
+sc = SoundClient()
+
+class table:
+    def __init__(self, location, name, objects=1):
+        self.location = location
+        self.name = name
+        self.objects = objects
+        self.empty = False
+
+Table1 = table([2,2],'Table 1')
+Table2 = table([2,-2],'Table 2')
+Tables = [Table1,Table2]
+RedStorage = table([3,0],'Red Storage',1)
+BlueStorage = table([-2,0],'Blue Storage',1)
+home = table([0,0],'Home')
+
+
 # Function that controls the head tilt
-def head_tilt(height):
+def head_tilt(x,y,z):
     head_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
     head_client.wait_for_server()
     goal = PointHeadGoal()
     goal.target.header.stamp = rospy.Time.now()
     goal.target.header.frame_id = "base_link"
-    goal.target.point.x = 1
-    goal.target.point.y = 0
-    goal.target.point.z = height
+    goal.target.point.x = x
+    goal.target.point.y = y
+    goal.target.point.z = z
     head_client.send_goal(goal)
     head_client.wait_for_result()
+
+
 
 # Function that controls the gripper
 def gripper(position):
@@ -31,126 +53,160 @@ def gripper(position):
     gripper.send_goal(goal)
     gripper.wait_for_result()
 
+
+
 # Function that controls the torso and arm tuck
 def torso(height):
+
+    # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
-    # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
-    planning_scene.removeCollisionObject("my_front_ground") # removes from world so in relation to base_link instead
+
+    # Define ground plane to avoid collisions
+    # removes from world so in relation to base_link instead
+    planning_scene.removeCollisionObject("my_front_ground")
     planning_scene.removeCollisionObject("my_back_ground")
     planning_scene.removeCollisionObject("my_right_ground")
     planning_scene.removeCollisionObject("my_left_ground")
-    planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0) # name, size, x, y, z
+    planning_scene.removeCollisionObject("table")
+    planning_scene.removeCollisionObject("upper_table")
+    planning_scene.removeCollisionObject("base")
+
+    # name, size, x, y, z
+    planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
-    planning_scene.addCube("table", 1, 1, 0, 0)
+    planning_scene.addBox("table", 1,2,0.75,0.85,0,0.4) #2.5cm higher than table
+    planning_scene.addBox("upper_table", 1,2,0.05,0.85,0,0.8) # 7.5cm higher than table (don't hit objects)
     planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
+    rospy.sleep(0.5)
 
     joints = ["torso_lift_joint", "shoulder_pan_joint", "shoulder_lift_joint", "upperarm_roll_joint",
                   "elbow_flex_joint", "forearm_roll_joint", "wrist_flex_joint", "wrist_roll_joint"]
     pose = [height, 1.32, 1.40, -0.2, 1.72, 0.0, 1.66, 0.0]
 
     # Plans the joints in joint_names to angles in pose
-    move_group.moveToJointPosition(joints, pose, wait=True)
+    move_group.moveToJointPosition(joints, pose, wait=True, max_velocity_scaling_factor=velocity_scale)
 
-# Function to pickup an object
+
+
+# Function that picks up an object
 def pick():
-    torso(0.5)
-    head_tilt(0.5)
-    gripper(0.1)
-#def pick(msg):
-    # Get tf information
-    #marker = msg.transforms[0]
-    #ID = marker.fiducial_id   
-    #trans = marker.transform.translation
-    #rot = marker.transform.rotation
-    #print 'Fiducial', ID
-    #print 'Translation: ', trans.x, trans.y, trans.z
-    #print 'Rotation: ', rot.x, rot.y, rot.z, rot.w
 
-    # transx = 0.00714426165428
-    # transy = 0.204051632032
-    # transz = 0.55055134137
-    # rotx = 0.00188216955915
-    # roty = 0.864120680408
-    # rotz = -0.498701155419
-    # rotw = -0.0677426358516
-    #br = tf.TransformBroadcaster()
-    #br.sendTransform((transx,transy,transz),(rotx,roty,rotz,rotw),rospy.Time.now(),"object","head_camera_link")
-     
+    torso(0.1)
+    gripper(0.1)
+
+    # Search for an object
+    angles = [0,-0.3,0.3,0]
+    for angle in angles:
+        head_tilt(1,angle,0.25)
+        rospy.sleep(3)
+        pick_pub.publish('pick')
+        try:
+            info = rospy.wait_for_message("markers", String, 10)
+            info = info.data
+            num_markers = int(info[0])
+            ID = int(info[2])
+        except:
+            return True, 'N/A'
+        if num_markers:
+            break
+
+    # Determine how many objects and if the table is empty
+    if (num_markers == 0):
+        gripper(0.1)
+        torso(0.05)
+        head_tilt(1,0,1)
+        return True, 'N/A'
+    # Removed because it may have not seen others
+    #elif (num_markers == 1):
+    #    empty = True               
+    else:
+        empty = False
+
+    if (ID == 2):
+        colour = 'red'
+        RedStorage.objects -= 1
+        rospy.loginfo("Red Object")
+    else:
+        colour = 'blue'
+        BlueStorage.objects -= 1
+        rospy.loginfo("Blue Object")
 
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
-    # Define ground plane to avoid collisions
     planning_scene = PlanningSceneInterface("base_link")
-    planning_scene.removeCollisionObject("my_front_ground")
-    planning_scene.removeCollisionObject("my_back_ground")
-    planning_scene.removeCollisionObject("my_right_ground")
-    planning_scene.removeCollisionObject("my_left_ground")
-    planning_scene.addCube("my_front_ground", 2, 1.1, 0.0, -1.0)
-    planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
-    planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
-    planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
-    planning_scene.addCube("table", 1, 1, 0, 0)
-    planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
- 
+    # Get gripper to object transform
     listener = tf.TransformListener()
     listener.waitForTransform("object","base_link", rospy.Time(),rospy.Duration(1))
-    (trans_head, rot_head) = listener.lookupTransform("base_link","object", rospy.Time())
+    (trans, rot) = listener.lookupTransform("base_link","object", rospy.Time())
 
     # Pick object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
     q = quaternion_from_euler(0,1.5707,0)
-
-    #gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]),Quaternion(rot_head[0],rot_head[1],rot_head[2],rot_head[3]))]
-    #gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]),Quaternion(0,0,0,1))]  
-    gripper_poses = [Pose(Point(trans_head[0], trans_head[1], trans_head[2]+0.1),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans_head[0], trans_head[1], trans_head[2]),Quaternion(q[0],q[1],q[2],q[3]))]    
+    gripper_poses = [Pose(Point(trans[0], trans[1], trans[2]+0.4),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans[0], trans[1], trans[2]+0.3),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans[0], trans[1], trans[2]+0.4),Quaternion(q[0],q[1],q[2],q[3]))]    
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
     gripper_pose_stamped.header.frame_id = 'base_link'
     rospy.loginfo("Picking Object")
 
+    # Move gripper frame to the poses specified
     for pose in gripper_poses:
         gripper_pose_stamped.header.stamp = rospy.Time.now()
         gripper_pose_stamped.pose = pose
-
-        # Move gripper frame to the pose specified
-        move_group.moveToPose(gripper_pose_stamped, 'gripper_link')
+        move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
+        planning_scene.removeCollisionObject("upper_table")
 
     rospy.sleep(1)
     gripper(0)
-    rospy.sleep(1)
-    torso(0.5)
+    # planning_scene.attachCube("object",0.05,0,0,0,'gripper_link','gripper_link')
     rospy.sleep(1)
     torso(0.05)
-    head_tilt(1)
-    rospy.sleep(1)
-    gripper(0.1)
+    head_tilt(1,0,1)
 
-# Only calls the pick function once an object has been detected
-def pick_callback(msg):
-
-   if len(msg.transforms) > 0:
-       counter = 0
-       pick(msg)
-   elif counter < 50:
-       counter += 1
-       pick_listener()
-   else:
-       print("No marker found")
-   counter = 0        
+    return empty, colour
 
 
-# Subscribe to aruco_detect topics for marker to camera transforms
-def pick_listener():
-    torso(0.5)
-    head_tilt(0.5)
-    gripper(0.1)
-    rospy.Subscriber("fiducial_transforms", FiducialTransformArray, pick_callback)    
+
+# Function that navigates to a location 
+def navigate(table):
+    sc.say('I am moving to ' + table.name)
+
+    # Define a client to send goal requests to the move_base server through a SimpleActionClient
+    ac = actionlib.SimpleActionClient("move_base", MoveBaseAction)
+
+    # Wait for the action server to come up
+    while(not ac.wait_for_server(rospy.Duration.from_sec(5.0))):
+        rospy.loginfo("Waiting for the move_base action server to come up")
+
+    # Set up the frame parameters
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+
+    # Moving towards goal
+    goal.target_pose.pose.position =  Point(table.location[0],table.location[1],0)
+    goal.target_pose.pose.orientation.x = 0.0
+    goal.target_pose.pose.orientation.y = 0.0
+    goal.target_pose.pose.orientation.z = 0.0
+    goal.target_pose.pose.orientation.w = 1.0
+
+    rospy.loginfo("Moving to " + table.name)
+    ac.send_goal(goal)
+    ac.wait_for_result(rospy.Duration(60))
+
+    if(ac.get_state() ==  GoalStatus.SUCCEEDED):
+        return True
+    else:
+        return False
 
 
 if __name__ == '__main__':
     rospy.init_node("pick")
-    pick()
+    pick_pub = rospy.Publisher('pick', String, queue_size=10)
+    empty, colour = pick()
+    print(empty, colour)
+    #navigate(home)
+
