@@ -21,7 +21,7 @@ tidy = False
 assistance = True
 cont = False
 
-velocity_scale = 1
+velocity_scale = 0.3
 
 # Initialise Tables and Storage Containers
 class table:
@@ -31,12 +31,12 @@ class table:
         self.objects = objects
         self.empty = False
 
-Table1 = table([2,2],'Table 1')
-Table2 = table([2,-2],'Table 2')
-Tables = [Table1,Table2]
-RedStorage = table([3,0],'Red Storage',1)
-BlueStorage = table([-2,0],'Blue Storage',1)
-home = table([0,0],'Home')
+Table1 = table([0.5,-0.9,-pi/4],'Table 1')
+Table2 = table([2,-2,-pi/4],'Table 2')
+Tables = [Table1]#,Table2]
+RedStorage = table([0,0,-pi/4],'Red Storage',1)
+BlueStorage = table([0,0,-pi/4],'Blue Storage',1)
+home = table([-1.169, 0.603,-pi/4],'Home')
 
 
 
@@ -82,6 +82,9 @@ def torso(height,pick=True):
     planning_scene.removeCollisionObject("my_left_ground")
     planning_scene.removeCollisionObject("table")
     planning_scene.removeCollisionObject("upper_table")
+    planning_scene.removeCollisionObject("LT_rotation")
+    planning_scene.removeCollisionObject("RT_rotation")
+    planning_scene.removeCollisionObject("back_wall")
     planning_scene.removeCollisionObject("base")
 
     # name, size, x, y, z
@@ -90,8 +93,11 @@ def torso(height,pick=True):
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
     if pick:
-        planning_scene.addBox("table", 1,2,0.75,0.85,0,0.4) #2.5cm higher than table
-        planning_scene.addBox("upper_table", 1,2,0.05,0.85,0,0.8) # 7.5cm higher than table (don't hit objects)
+        planning_scene.addBox("table", 1,3,0.75,0.8,0,0.4) #2.5cm higher than table
+        planning_scene.addBox("back_wall", 0.1,3,1,1.3,0,1.25) 
+        planning_scene.addBox("LT_rotation", 0.03,1.25,0.8,0.285,-0.875,0.4) 
+        planning_scene.addBox("RT_rotation", 0.03,1.25,0.8,0.285,0.875,0.4) 
+        planning_scene.addBox("upper_table", 1,3,0.08,0.8,0,0.8) # 9cm higher than table (don't hit objects)
     planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
     rospy.sleep(0.5)
 
@@ -158,7 +164,7 @@ def pick():
 
     # Pick object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
     q = quaternion_from_euler(0,1.5707,0)
-    gripper_poses = [Pose(Point(trans[0], trans[1], trans[2]+0.4),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans[0], trans[1], trans[2]+0.3),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans[0], trans[1], trans[2]+0.4),Quaternion(q[0],q[1],q[2],q[3]))]    
+    gripper_poses = [Pose(Point(trans[0], trans[1], trans[2]+0.1),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans[0], trans[1], trans[2]+0.02),Quaternion(q[0],q[1],q[2],q[3]))]    
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
@@ -171,9 +177,14 @@ def pick():
         gripper_pose_stamped.pose = pose
         move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
         planning_scene.removeCollisionObject("upper_table")
+        rospy.sleep(1)
 
     rospy.sleep(1)
     gripper(0)
+    gripper_pose_stamped.header.stamp = rospy.Time.now()
+    gripper_pose_stamped.pose = Pose(Point(trans[0], trans[1], trans[2]+0.1),Quaternion(q[0],q[1],q[2],q[3]))
+    move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
+
     # planning_scene.attachCube("object",0.05,0,0,0,'gripper_link','gripper_link')
     rospy.sleep(1)
     torso(0.05)
@@ -233,7 +244,7 @@ def navigate(table):
 
     # Moving towards goal
     goal.target_pose.pose.position =  Point(table.location[0],table.location[1],0)
-    orientation = Quaternion(*quaternion_from_euler(0,0,pi/2))
+    orientation = Quaternion(*quaternion_from_euler(0,0,table.location[2]))
     goal.target_pose.pose.orientation = orientation
 
     rospy.loginfo("Moving to " + table.name)
@@ -349,9 +360,14 @@ if __name__ == '__main__':
     torso(0.05)
     head_tilt(1,0,1)
     gripper(0.1)
+    rospy.sleep(1)
+
+    navigate(home)
+    rospy.sleep(1)
 
     sc.say('Hello my name is Fetch, let me know when you want me to start tidying','voice_us1_mbrola')
     rospy.sleep(1)
+    rospy.loginfo('want me to tidy?')
 
     while not rospy.is_shutdown():
         # Start tidying when prompted

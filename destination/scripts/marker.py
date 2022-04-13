@@ -3,7 +3,7 @@ import rospy, tf
 from std_msgs.msg import String
 from fiducial_msgs.msg import FiducialTransformArray
 
-simulation = True
+simulation = False
 pick_status = False
 
 # Marker coords for simulation
@@ -43,9 +43,9 @@ def pick(msg):
 
             # If no makers detected
             elif x == 4:
-                #for x in range(0,50):
-                markers_pub.publish(markers + " 0")
-                rate.sleep()
+                for x in range(0,50):
+                    markers_pub.publish(markers + " 0")
+                    rate.sleep()
                 
     global pick_status
     pick_status = False
