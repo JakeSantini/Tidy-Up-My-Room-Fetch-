@@ -17,7 +17,7 @@ def cont():
     pub.publish("continue")
 
 
-# Function that signals nodes to 'stop assistance'
+# Function that signals main node to 'stop assistance'
 def stop_assistance():
     rospy.loginfo("Stop Assistance Selected")
     pub.publish("stop assistance")

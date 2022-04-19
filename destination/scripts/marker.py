@@ -3,8 +3,12 @@ import rospy, tf
 from std_msgs.msg import String
 from fiducial_msgs.msg import FiducialTransformArray
 
+
+# Whether this is a simulation 
 simulation = False
+# Whether its been asked to pick an object
 pick_status = False
+
 
 # Marker coords for simulation
 transx = 0.00714426165428
@@ -17,9 +21,13 @@ rotw = -0.0677426358516
 
 
 # Function to broadcast marker transform and information
+# 'msg' is a FiducialTransformArray containing marker information
 def pick(msg):
+    # Ensure we catch the updated pick status
     for x in range(5):
+        # If we've been notified to pick up an object
         if pick_status:
+            # How many markers Fetch can see
             markers = str(len(msg.transforms))
             rospy.loginfo("Detected " + markers + " objects")
             rate = rospy.Rate(10.0)
@@ -46,7 +54,8 @@ def pick(msg):
                 for x in range(0,50):
                     markers_pub.publish(markers + " 0")
                     rate.sleep()
-                
+
+    # Reset pick status   
     global pick_status
     pick_status = False
 
@@ -57,7 +66,7 @@ def callback(msg):
     pick_status = True
 
 
-# Function to broadcast simulated marker
+# Function to broadcast a simulated marker
 def pick_sim(msg):
     rate = rospy.Rate(10.0)
     br = tf.TransformBroadcaster()
@@ -68,10 +77,13 @@ def pick_sim(msg):
         rate.sleep()
 
 
+
 if __name__ == '__main__':
+    # Initiate
     rospy.init_node('marker_sub', anonymous=True)
     markers_pub = rospy.Publisher('markers', String, queue_size=10)
 
+    # Wait for a pick object request
     while not rospy.is_shutdown():
         if simulation:
             rospy.Subscriber('pick', String, pick_sim) 
