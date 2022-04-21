@@ -167,7 +167,8 @@ include_directories(
    scripts/Stage_1_Test.py
    scripts/Stage_1.py
    scripts/user_input.py
-   scripts/stop.py
+   scripts/stop_nav.py
+   scripts/stop_manipulation.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

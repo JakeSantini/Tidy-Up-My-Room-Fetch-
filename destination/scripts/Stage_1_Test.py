@@ -47,7 +47,7 @@ home = destination([-1.169, 0.603,-pi/4],'My Home')
 # Function that controls the direction the head/camera is looking
 # 'x,y,z' are floats and are the coordinates relative to the base that Fetch will look
 def head_tilt(x,y,z):
-    rospy.loginfo("Fetch is looking at: " + x + ", " + y + ", " + z)
+    rospy.loginfo("Fetch is looking at: " + str(x) + ', ' + str(y) + ', ' + str(z))
     head_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
     head_client.wait_for_server()
     goal = PointHeadGoal()
@@ -58,13 +58,14 @@ def head_tilt(x,y,z):
     goal.target.point.z = z
     head_client.send_goal(goal)
     head_client.wait_for_result()
+    rospy.sleep(0.5)
 
 
 
 # Function that controls the gripper
 # 'position' is a float ranging from 0-0.1 and is the distance the gripper will open in meters
 def gripper(position):
-    rospy.loginfo("Fetch is opening/closing gripper to position: " + position)
+    rospy.loginfo("Fetch is adjusting gripper to position: " + str(position))
     gripper = actionlib.SimpleActionClient("gripper_controller/gripper_action", GripperCommandAction)
     gripper.wait_for_server()
     goal = GripperCommandGoal()
@@ -72,6 +73,7 @@ def gripper(position):
     goal.command.position = position
     gripper.send_goal(goal)
     gripper.wait_for_result()
+    rospy.sleep(0.5)
 
 
 
@@ -106,7 +108,7 @@ def torso(height,pick=True):
     planning_scene.addCube("my_back_ground", 2, -1.2, 0.0, -1.0)
     planning_scene.addCube("my_left_ground", 2, 0.0, 1.2, -1.0)
     planning_scene.addCube("my_right_ground", 2, 0.0, -1.2, -1.0)
-    planning_scene.addBox("back_wall", 0.1,3,3,1.3,0,1.25)
+    planning_scene.addBox("back_wall", 0.1,3,3,1,0,1.25)
     planning_scene.addBox("base", 0.33,0.57,0.76,0.13,0,0)
 
     # Collision geometry relevant for picking an object
@@ -114,8 +116,8 @@ def torso(height,pick=True):
         planning_scene.addBox("table", 1,3,0.75,0.8,0,0.4) 
         planning_scene.addBox("LT_rotation", 0.03,1.25,0.8,0.285,-0.875,0.4) 
         planning_scene.addBox("RT_rotation", 0.03,1.25,0.8,0.285,0.875,0.4) 
-        planning_scene.addBox("upper_table", 1,3,0.08,0.8,0,0.8)
-    rospy.sleep(1)
+        planning_scene.addBox("upper_table", 1,3,0.07,0.8,0,0.8)
+    rospy.sleep(0.5)
 
     # Arm tuck joint positions
     rospy.loginfo("Fetch is adjusting its arm and/or torso")
@@ -125,6 +127,7 @@ def torso(height,pick=True):
 
     # Plans the joints in joint_names to angles in pose
     move_group.moveToJointPosition(joints, pose, wait=True, max_velocity_scaling_factor=velocity_scale)
+    rospy.sleep(0.5)
 
 
 
@@ -139,7 +142,7 @@ def pick():
     angles = [0,-0.3,0.3,0]
     for angle in angles:
         head_tilt(1,angle,0.25)
-        rospy.sleep(3)
+        rospy.sleep(2)
 
         # Inform marker node to look for objects
         pick_pub.publish('pick')
@@ -191,21 +194,20 @@ def pick():
 
     # Pick object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
     q = quaternion_from_euler(0,1.5707,0)
-    gripper_poses = [Pose(Point(trans[0], trans[1], trans[2]+0.1),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans[0], trans[1], trans[2]+0.02),Quaternion(q[0],q[1],q[2],q[3]))]    
+    gripper_poses = [Pose(Point(trans[0], trans[1], trans[2]+0.1),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans[0]-0.005, trans[1], trans[2]+0.01),Quaternion(q[0],q[1],q[2],q[3]))]    
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
     gripper_pose_stamped.header.frame_id = 'base_link'
 
     # Move gripper frame to the object
-    rospy.loginfo("Fetch starts picking the object up")
+    rospy.loginfo("Fetch has started picking the object up")
     for pose in gripper_poses:
         gripper_pose_stamped.header.stamp = rospy.Time.now()
         gripper_pose_stamped.pose = pose
         move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
         planning_scene.removeCollisionObject("upper_table")
-        rospy.sleep(1)
-    rospy.sleep(1)
+        rospy.sleep(0.5)
 
     # Close gripper on object
     gripper(0)
@@ -213,10 +215,10 @@ def pick():
 
     # Tuck arm
     gripper_pose_stamped.header.stamp = rospy.Time.now()
-    gripper_pose_stamped.pose = Pose(Point(trans[0], trans[1], trans[2]+0.1),Quaternion(q[0],q[1],q[2],q[3]))
+    gripper_pose_stamped.pose = Pose(Point(trans[0], trans[1], trans[2]+0.15),Quaternion(q[0],q[1],q[2],q[3]))
     move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
     # planning_scene.attachCube("object",0.05,0,0,0,'gripper_link','gripper_link')
-    rospy.sleep(1)
+
     torso(0.05)
     head_tilt(1,0,1)
     rospy.loginfo("The object is ready for transportation")
@@ -237,12 +239,12 @@ def place():
 
     # Place object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
     q = quaternion_from_euler(0,1.5707,0)
-    pose = Pose(Point(0.5,0,1),Quaternion(q[0],q[1],q[2],q[3])) 
+    pose = Pose(Point(0.3,0,1),Quaternion(q[0],q[1],q[2],q[3])) 
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
     gripper_pose_stamped.header.frame_id = 'base_link'
-    rospy.loginfo("Placing Object")
+    rospy.loginfo("Fetch is placing the object")
 
     gripper_pose_stamped.header.stamp = rospy.Time.now()
     gripper_pose_stamped.pose = pose
@@ -250,13 +252,11 @@ def place():
     # Move gripper frame to the pose specified
     move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
 
-    rospy.sleep(1)
+    rospy.sleep(0.5)
     gripper(0.1)
     #planning_scene.removeAttachedObject("object")
     #planning_scene.removeCollisionObject("object")
-    rospy.sleep(1)
     torso(0.05,False)
-    rospy.sleep(1)
     head_tilt(1,0,1)
     
 
@@ -265,7 +265,7 @@ def place():
 # 'destination' is the requested location to navigate to and is a class
 def navigate(destination):
     sc.say('I am moving to ' + destination.name,'voice_us1_mbrola')
-    rospy.loginfo("Fetch is moving to " + destination.name)
+    rospy.loginfo("Fetch is moving to " + str(destination.name))
 
     # Define a client to send goal requests to the move_base server through a SimpleActionClient
     ac = actionlib.SimpleActionClient("move_base", MoveBaseAction)
@@ -288,7 +288,7 @@ def navigate(destination):
         rospy.loginfo("Fetch reached " + destination.name)
         return True
     else:
-        rospy.loginfo("Fetch could not reach " + destination.name)
+        rospy.loginfo("Fetch could not reach " + str(destination.name))
         return False
 
 
@@ -325,7 +325,6 @@ def clean():
                 # If storage container not reached, ask for someone to take the object
                 else:
                     sc.say('Sorry I can not reach the container, please take the object from me','voice_us1_mbrola')
-                    #rospy.sleep(1)
                     gripper(0.1)
                     sc.say('Press continue once you have taken it','voice_us1_mbrola')
                     while not cont:
@@ -340,21 +339,22 @@ def clean():
             # Update status on tidying if a set of colours is complete
             if not RedStorage.objects:
                 sc.say('All red objects are complete','voice_us1_mbrola')
-                rospy.sleep(1)
             if not BlueStorage.objects:
                 sc.say('All blue objects are complete','voice_us1_mbrola')
-                rospy.sleep(1)
         
         # Stop tidying if requested
         if not assistance:
             break
 
+    rospy.sleep(1)
+    sc.say('I have finished tidying','voice_us1_mbrola')
+    rospy.sleep(3)
+
     # Tidying has completed, return to home and turn off
     navigate(home)
-    sc.say('I have finished tidying','voice_us1_mbrola')
     close_pub.publish('close')
-    rospy.sleep(1)
-    rospy.loginfo("Fethc has finished Tidying")
+    rospy.sleep(0.5)
+    rospy.loginfo("Fetch has finished tidying")
     rospy.signal_shutdown("Finished Tidying")
     sys.exit(0)
 
@@ -368,15 +368,14 @@ def exception_action(data):
         rospy.loginfo("User chose not to start tidying")
         sc.say('I am turning off','voice_us1_mbrola')
         close_pub.publish('close')
-        rospy.sleep(1)
+        rospy.sleep(0.5)
         rospy.signal_shutdown("Cancel Requested")
         sys.exit(0)
     
     # Tell Fetch to stop tidying
     elif (data.data == "stop assistance"):
         rospy.loginfo("User requested Fetch to stop assistance")
-        sc.say('I will stop helping you when I am finished with this','voice_us1_mbrola')
-        rospy.sleep(1)
+        sc.say('I will stop helping you when I am finished with this task','voice_us1_mbrola')
         global assistance
         assistance = False
 
@@ -389,8 +388,6 @@ def exception_action(data):
     # Tell Fetch to stop moving
     elif (data.data == "stop emergency"):
         rospy.loginfo("User clicked the emergency stop")
-        sc.say('Shutting down','voice_us1_mbrola')
-        rospy.sleep(1)
         rospy.signal_shutdown("Emergency Stop Requested")
         sys.exit(0)
 
@@ -413,13 +410,10 @@ if __name__ == '__main__':
     torso(0.05)
     head_tilt(1,0,1)
     gripper(0.1)
-    #rospy.sleep(1)
     navigate(home)
-    #rospy.sleep(1)
 
     # Start tidying when prompted
     sc.say('Hello my name is Fetch, let me know when you want me to start tidying','voice_us1_mbrola')
-    #rospy.sleep(1)
     rospy.loginfo('Fetch is ready to start tidying')
 
     while not rospy.is_shutdown():

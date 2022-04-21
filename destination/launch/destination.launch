@@ -13,7 +13,7 @@
   <arg name="verbose" default="false"/>
 
   <node pkg="aruco_detect" name="aruco_detect"
-    type="aruco_detect" output="screen" respawn="false">
+    type="aruco_detect" output="log" respawn="false">
     <param name="image_transport" value="$(arg transport)"/>
     <param name="publish_images" value="true" />
     <param name="fiducial_len" value="$(arg fiducial_len)"/>
@@ -30,11 +30,11 @@
 
   <node pkg="sound_play" name="soundplay" type="soundplay_node.py" output="screen">
   </node>
-  <node pkg="destination" name="user_input" type="user_input.py" output="screen">
-  </node>
   <node pkg="destination" name="marker" type="marker.py" output="screen">
   </node>
-  <node pkg="destination" name="stop" type="stop.py" output="screen">
+  <node pkg="destination" name="stop_navigation" type="stop_nav.py" output="screen">
+  </node>
+  <node pkg="destination" name="stop_manipulation" type="stop_manipulation.py" output="screen">
   </node>
   <node pkg="destination" name="Main_Control" type="Stage_1_Test.py" output="screen">
   </node>
