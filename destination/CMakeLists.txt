@@ -163,9 +163,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
    scripts/marker.py
-   scripts/pick.py
    scripts/Stage_1_Test.py
-   scripts/Stage_1.py
    scripts/user_input.py
    scripts/stop_nav.py
    scripts/stop_manipulation.py

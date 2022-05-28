@@ -3,11 +3,10 @@ import rospy, sys
 from std_msgs.msg import String
 from actionlib_msgs.msg import *
 from moveit_python import MoveGroupInterface
-from std_msgs.msg import String
 
 
 # Function that stops manipulation of Fetch
-# 'data' is a string containing the request of a button press from the user input node
+# Input: 'data', msg containing the request of a button press from the user input node
 def stop(data):
     # initiate shutdown dequence if the emergency stop button is pressed
     if (data.data == "stop emergency"):

@@ -8,7 +8,7 @@ from actionlib_msgs.msg import *
 from control_msgs.msg import PointHeadAction, PointHeadGoal, GripperCommandAction, GripperCommandGoal
 from moveit_python import MoveGroupInterface, PlanningSceneInterface
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
-from tf.transformations import quaternion_from_euler
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
 from math import pi
 
 rospy.loginfo("Fetch is starting up...")
@@ -25,7 +25,7 @@ assistance = True
 cont = False
 
 # Scaling factor for manipulation speed
-velocity_scale = 0.3
+velocity_scale = 0.35
 
 # Initialise Tables and Storage Containers
 class destination:
@@ -35,20 +35,29 @@ class destination:
         self.objects = objects
         self.empty = False
 
-Table1 = destination([0.5,-0.9,-pi/4],'The First Table')
-Table2 = destination([2,-2,-pi/4],'The Second Table')
-Tables = [Table1]#,Table2]
-RedStorage = destination([0,0,-pi/4],'The Red Storage',1)
-BlueStorage = destination([0,0,-pi/4],'The Blue Storage',1)
-home = destination([-1.169, 0.603,-pi/4],'My Home')
+# For Fetch1077 Map5
+Table1 = destination([7.2,11.3,pi-0.3],'The First Table')
+Table2 = destination([7.16,9.5,-pi/1.2],'The Second Table')
+Tables = [Table1,Table2]
+RedStorage = destination([8.05,11.96,pi/2],'The Red Storage',1)
+BlueStorage = destination([8.59,12,pi/2],'The Blue Storage',1)
+home = destination([9.06, 11.07,pi-0.3],'My Home')
 
+# For Fetch1080 Map5
+# Table1 = destination([8.5,12.3,pi-0.3+pi],'The First Table')
+# Table2 = destination([8.6,14,pi-pi/1.2],'The Second Table')
+# Tables = [Table1,Table2]
+# RedStorage = destination([7.1,11.8,pi+pi/2],'The Red Storage',1)
+# BlueStorage = destination([7.1,11.8,pi+pi/2],'The Blue Storage',1)
+# home = destination([6.9,12.5,pi+pi-0.3],'My Home')
 
 
 # Function that controls the direction the head/camera is looking
-# 'x,y,z' are floats and are the coordinates relative to the base that Fetch will look
+# Inputs: 'x,y,z', floats that are the coordinates relative to the base that Fetch will look
 def head_tilt(x,y,z):
     rospy.loginfo("Fetch is looking at: " + str(x) + ', ' + str(y) + ', ' + str(z))
     head_client = actionlib.SimpleActionClient("head_controller/point_head", PointHeadAction)
+    rospy.sleep(0.5)
     head_client.wait_for_server()
     goal = PointHeadGoal()
     goal.target.header.stamp = rospy.Time.now()
@@ -63,10 +72,11 @@ def head_tilt(x,y,z):
 
 
 # Function that controls the gripper
-# 'position' is a float ranging from 0-0.1 and is the distance the gripper will open in meters
+# Input: 'position', float ranging from 0-0.1 and is the distance the gripper will open in meters
 def gripper(position):
     rospy.loginfo("Fetch is adjusting gripper to position: " + str(position))
     gripper = actionlib.SimpleActionClient("gripper_controller/gripper_action", GripperCommandAction)
+    rospy.sleep(0.5)
     gripper.wait_for_server()
     goal = GripperCommandGoal()
     goal.command.max_effort = 50
@@ -77,14 +87,15 @@ def gripper(position):
 
 
 
-# Function that controls the torso, arm tuck and intiated collision geometry 
-# 'height' is the desired height of the torso in meters, it is a float
-# 'pick' is a boolean value representing if the collision geometry for picking an object should be initiated
+# Function that controls the torso, arm tuck and initiates collision geometry 
+# Input: 'height', float indicating the desired height of the torso in meters
+# Input: 'pick', boolean value representing if the collision geometry for picking an object should be initiated
 def torso(height,pick=True):
+    rospy.sleep(0.5)
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     planning_scene = PlanningSceneInterface("base_link")
-
+    rospy.sleep(0.5)
     # Define collision geometry in relation to base_link
     rospy.loginfo("Setting up collision geometry")
     # Ground
@@ -101,6 +112,7 @@ def torso(height,pick=True):
     planning_scene.removeCollisionObject("RT_rotation")
     # Wall behind table
     planning_scene.removeCollisionObject("back_wall")
+    planning_scene.removeCollisionObject("place_wall")
     # Fetch base
     planning_scene.removeCollisionObject("base")
 
@@ -113,11 +125,13 @@ def torso(height,pick=True):
 
     # Collision geometry relevant for picking an object
     if pick:
-        planning_scene.addBox("table", 1,3,0.75,0.8,0,0.4) 
+        planning_scene.addBox("table", 1,3,0.75,0.8,0,0.38) 
         planning_scene.addBox("LT_rotation", 0.03,1.25,0.8,0.285,-0.875,0.4) 
         planning_scene.addBox("RT_rotation", 0.03,1.25,0.8,0.285,0.875,0.4) 
         planning_scene.addBox("upper_table", 1,3,0.07,0.8,0,0.8)
-    rospy.sleep(0.5)
+    else: 
+        planning_scene.addBox("back_wall", 0.1,3,3,0.65,0,1.25)
+    rospy.sleep(1)
 
     # Arm tuck joint positions
     rospy.loginfo("Fetch is adjusting its arm and/or torso")
@@ -127,12 +141,15 @@ def torso(height,pick=True):
 
     # Plans the joints in joint_names to angles in pose
     move_group.moveToJointPosition(joints, pose, wait=True, max_velocity_scaling_factor=velocity_scale)
-    rospy.sleep(0.5)
+    rospy.sleep(1)
 
 
 
 # Function that performs the identification and picking of an object
+# Output: 'empty', boolean value indicating if a table has objects on it
+# Output: 'colour', string indicating the colour of the object
 def pick():
+    rospy.sleep(0.5)
     # Ensure gripper is open and raise torso slightly
     torso(0.1)
     gripper(0.1)
@@ -144,6 +161,9 @@ def pick():
         head_tilt(1,angle,0.25)
         rospy.sleep(2)
 
+
+        #for x in range(2):
+
         # Inform marker node to look for objects
         pick_pub.publish('pick')
 
@@ -153,6 +173,8 @@ def pick():
             info = info.data
             num_markers = int(info[0])
             ID = int(info[2])
+            # if num_markers > 0:
+            # break
         except:
             # No information recieved 
             return True, 'N/A'
@@ -185,15 +207,17 @@ def pick():
     # Create move group interface for Fetch
     move_group = MoveGroupInterface("arm_with_torso", "base_link")
     planning_scene = PlanningSceneInterface("base_link")
-
+    rospy.sleep(0.5)
     # Get gripper to object transform
     rospy.loginfo("Fetch requested object transforms")
     listener = tf.TransformListener()
-    listener.waitForTransform("object","base_link", rospy.Time(),rospy.Duration(1))
-    (trans, rot) = listener.lookupTransform("base_link","object", rospy.Time())
+    time_now=rospy.Time()
+    listener.waitForTransform("object","base_link", time_now,rospy.Duration(1))
+    (trans, rot) = listener.lookupTransform("base_link","object", time_now)
+    rot = euler_from_quaternion(rot)
 
     # Pick object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
-    q = quaternion_from_euler(0,1.5707,0)
+    q = quaternion_from_euler(0,1.5707,rot[2])
     gripper_poses = [Pose(Point(trans[0], trans[1], trans[2]+0.1),Quaternion(q[0],q[1],q[2],q[3])),Pose(Point(trans[0]-0.005, trans[1], trans[2]+0.01),Quaternion(q[0],q[1],q[2],q[3]))]    
 
     # Construct a "pose_stamped" message as required by moveToPose
@@ -207,7 +231,7 @@ def pick():
         gripper_pose_stamped.pose = pose
         move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
         planning_scene.removeCollisionObject("upper_table")
-        rospy.sleep(0.5)
+        rospy.sleep(1)
 
     # Close gripper on object
     gripper(0)
@@ -222,12 +246,13 @@ def pick():
     torso(0.05)
     head_tilt(1,0,1)
     rospy.loginfo("The object is ready for transportation")
+    rospy.sleep(0.5)
 
     return empty, colour
  
 
 
-# Function that places an object
+# Function that places an object in the storage container
 def place():
     # Intiate
     torso(0.1,False)
@@ -239,7 +264,7 @@ def place():
 
     # Place object from above (1.5707 ~ 90 degree rotation of gripper in y axis)
     q = quaternion_from_euler(0,1.5707,0)
-    pose = Pose(Point(0.3,0,1),Quaternion(q[0],q[1],q[2],q[3])) 
+    pose = Pose(Point(0.6,0,0.4),Quaternion(q[0],q[1],q[2],q[3])) 
 
     # Construct a "pose_stamped" message as required by moveToPose
     gripper_pose_stamped = PoseStamped()
@@ -252,7 +277,7 @@ def place():
     # Move gripper frame to the pose specified
     move_group.moveToPose(gripper_pose_stamped, 'gripper_link', max_velocity_scaling_factor=velocity_scale)
 
-    rospy.sleep(0.5)
+    rospy.sleep(1)
     gripper(0.1)
     #planning_scene.removeAttachedObject("object")
     #planning_scene.removeCollisionObject("object")
@@ -262,7 +287,8 @@ def place():
 
 
 # Function that allows Fetch to navigate to a location 
-# 'destination' is the requested location to navigate to and is a class
+# Input: 'destination', class containing the requested location to navigate to
+# Output: boolean value indicating if Fetch reached its location
 def navigate(destination):
     sc.say('I am moving to ' + destination.name,'voice_us1_mbrola')
     rospy.loginfo("Fetch is moving to " + str(destination.name))
@@ -334,6 +360,12 @@ def clean():
             # If table can not be reached, try next one
             else:
                 sc.say('Sorry I can not reach the table','voice_us1_mbrola')
+                # Check table again later
+                if len(Tables) < 5:
+                    Tables.append(table)
+                    # If its the second table return home before trying again
+                    if table.name == 'The Second Table':
+                        navigate(home)
                 break
 
             # Update status on tidying if a set of colours is complete
@@ -341,9 +373,15 @@ def clean():
                 sc.say('All red objects are complete','voice_us1_mbrola')
             if not BlueStorage.objects:
                 sc.say('All blue objects are complete','voice_us1_mbrola')
+            if (not RedStorage.objects) and (not BlueStorage.objects):
+                break
         
         # Stop tidying if requested
         if not assistance:
+            break
+
+        # All objects are tidied, break loop
+        if (not RedStorage.objects) and (not BlueStorage.objects):
             break
 
     rospy.sleep(1)
@@ -353,7 +391,7 @@ def clean():
     # Tidying has completed, return to home and turn off
     navigate(home)
     close_pub.publish('close')
-    rospy.sleep(0.5)
+    rospy.sleep(1)
     rospy.loginfo("Fetch has finished tidying")
     rospy.signal_shutdown("Finished Tidying")
     sys.exit(0)
@@ -361,14 +399,14 @@ def clean():
 
 
 # Callback function for user input node (button pressed on the GUI)
-# 'data' is the information recieved on button press and is a string
+# Input: 'data', string indicating which button has been pressed
 def exception_action(data):
     # Tell Fetch to not tidy
     if ((data.data == "stop assistance") and (tidy == False)):
         rospy.loginfo("User chose not to start tidying")
         sc.say('I am turning off','voice_us1_mbrola')
         close_pub.publish('close')
-        rospy.sleep(0.5)
+        rospy.sleep(1)
         rospy.signal_shutdown("Cancel Requested")
         sys.exit(0)
     

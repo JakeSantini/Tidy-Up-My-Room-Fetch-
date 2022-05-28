@@ -4,11 +4,10 @@ from std_msgs.msg import String
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from actionlib_msgs.msg import *
 from geometry_msgs.msg import Point
-from std_msgs.msg import String
 
 
 # Function that stops navigation of Fetch
-# 'data' is a string containing the request of a button press from the user input node
+# Input: 'data', msg containing the request of a button press from the user input node
 def stop(data):
     # initiate shutdown dequence if the emergency stop button is pressed
     if (data.data == "stop emergency"):

@@ -8,7 +8,7 @@ from fiducial_msgs.msg import FiducialTransformArray
 simulation = False
 # Whether its been asked to pick an object
 pick_status = False
-
+count = 0
 
 # Marker coords for simulation
 transx = 0.00714426165428
@@ -21,7 +21,7 @@ rotw = -0.0677426358516
 
 
 # Function to broadcast marker transform and information
-# 'msg' is a FiducialTransformArray containing marker information
+# Input: 'msg' is a FiducialTransformArray containing marker information
 def pick(msg):
     # Ensure we catch the updated pick status
     for x in range(5):
@@ -41,9 +41,9 @@ def pick(msg):
                 ID = str(marker.fiducial_id)
                 rospy.loginfo("Broadcasting transforms for ID " + ID)
 
-                # Broadcast transform and info for 10 seconds
+                # Broadcast transform and info for 20 seconds
                 br = tf.TransformBroadcaster()
-                for x in range(0,10):
+                for x in range(0,20):
                     markers_pub.publish(markers + " " + ID)
                     br.sendTransform((trans.x,trans.y,trans.z),(rot.x,rot.y,rot.z,rot.w),rospy.Time.now(),"object","head_camera_rgb_optical_frame")
                     rate.sleep()
@@ -58,6 +58,45 @@ def pick(msg):
     # Reset pick status   
     global pick_status
     pick_status = False
+
+# def pick(msg):
+#     global count
+#     global pick_status
+#     # Ensure we catch the updated pick status
+#     for x in range(5):
+#         # If we've been notified to pick up an object
+#         if pick_status:
+#             # How many markers Fetch can see
+#             markers = str(len(msg.transforms))
+#             rospy.loginfo("Detected " + markers + " objects")
+#             rate = rospy.Rate(10.0)
+            
+#             # If there is a marker detected
+#             if len(msg.transforms) > 0:
+#                 # Take the first marker we see and get its information
+#                 marker = msg.transforms[0]   
+#                 trans = marker.transform.translation
+#                 rot = marker.transform.rotation
+#                 ID = str(marker.fiducial_id)
+#                 rospy.loginfo("Broadcasting transforms for ID " + ID)
+
+#                 # Broadcast transform and info for 20 seconds
+#                 br = tf.TransformBroadcaster()
+#                 for x in range(0,20):
+#                     markers_pub.publish(markers + " " + ID)
+#                     br.sendTransform((trans.x,trans.y,trans.z),(rot.x,rot.y,rot.z,rot.w),rospy.Time.now(),"object","head_camera_rgb_optical_frame")
+#                     rate.sleep()
+#                 pick_status = False
+#                 count = 0
+
+#             # If no makers detected
+#             elif count:
+#                 for x in range(0,50):
+#                     markers_pub.publish(markers + " 0")
+#                     rate.sleep()
+            
+#             # Try Aruco Detect again
+#             count += 1
 
 
 # Callback function to initiate marker broadcast
